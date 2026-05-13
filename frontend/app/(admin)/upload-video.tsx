@@ -1,11 +1,11 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ActivityIndicator, ScrollView, Platform
+  ActivityIndicator, ScrollView, Platform, Animated as RNAnimated
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { FontAwesome } from '@expo/vector-icons';
-import axios from 'axios';
+import axios, { CancelTokenSource } from 'axios';
 import { API_URL, AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import AnimatedPopup from '../../components/AnimatedPopup';
@@ -23,6 +23,10 @@ export default function UploadVideoScreen() {
   const [order, setOrder] = useState('');
   const [videoFile, setVideoFile] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'processing' | ''>('');
+  const progressAnim = useRef(new RNAnimated.Value(0)).current;
+  const cancelTokenRef = useRef<CancelTokenSource | null>(null);
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupConfig, setPopupConfig] = useState<{ type: 'error' | 'success'; title: string; message: string }>({
     type: 'error', title: '', message: '',
@@ -38,6 +42,17 @@ export default function UploadVideoScreen() {
     }
   };
 
+  const cancelUpload = () => {
+    if (cancelTokenRef.current) {
+      cancelTokenRef.current.cancel('Upload cancelled by user');
+      cancelTokenRef.current = null;
+    }
+    setUploading(false);
+    setUploadProgress(0);
+    setUploadPhase('');
+    progressAnim.setValue(0);
+  };
+
   const handleUpload = async () => {
     if (!title.trim() || !videoFile) {
       setPopupConfig({ type: 'error', title: '未入力 (Missing Info)', message: 'Please provide a title and select a video file.' });
@@ -45,6 +60,10 @@ export default function UploadVideoScreen() {
       return;
     }
     setUploading(true);
+    setUploadProgress(0);
+    setUploadPhase('uploading');
+    progressAnim.setValue(0);
+
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description);
@@ -57,16 +76,45 @@ export default function UploadVideoScreen() {
     } else {
       formData.append('video', { uri: videoFile.uri, name: videoFile.name || 'video.mp4', type: videoFile.mimeType || 'video/mp4' } as any);
     }
+
+    const source = axios.CancelToken.source();
+    cancelTokenRef.current = source;
+
     try {
-      await axios.post(`${API_URL}/videos/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await axios.post(`${API_URL}/videos/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 600000, // 10 min timeout for large videos
+        cancelToken: source.token,
+        onUploadProgress: (progressEvent) => {
+          const total = progressEvent.total || videoFile.size || 1;
+          const pct = Math.round((progressEvent.loaded * 100) / total);
+          setUploadProgress(pct);
+          RNAnimated.timing(progressAnim, {
+            toValue: pct / 100,
+            duration: 200,
+            useNativeDriver: false,
+          }).start();
+          if (pct >= 100) {
+            setUploadPhase('processing');
+          }
+        },
+      });
       setPopupConfig({ type: 'success', title: '成功 (Success)', message: 'Video uploaded successfully!' });
       setPopupVisible(true);
       setTitle(''); setDescription(''); setOrder(''); setVideoFile(null);
     } catch (err: any) {
-      setPopupConfig({ type: 'error', title: '失敗 (Failed)', message: err.response?.data?.msg || 'Failed to upload video' });
+      if (axios.isCancel(err)) {
+        setPopupConfig({ type: 'error', title: 'キャンセル', message: 'Upload was cancelled.' });
+      } else {
+        setPopupConfig({ type: 'error', title: '失敗 (Failed)', message: err.response?.data?.msg || 'Failed to upload video' });
+      }
       setPopupVisible(true);
     } finally {
       setUploading(false);
+      setUploadProgress(0);
+      setUploadPhase('');
+      progressAnim.setValue(0);
+      cancelTokenRef.current = null;
     }
   };
 
@@ -163,14 +211,51 @@ export default function UploadVideoScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Upload Button — compact, professional, no ShineButton */}
+        {/* Upload Progress */}
+        {uploading && (
+          <View style={[styles.progressContainer, { borderColor: colors.border }]}>
+            <View style={styles.progressHeader}>
+              <FontAwesome
+                name={uploadPhase === 'processing' ? 'cog' : 'cloud-upload'}
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={[styles.progressLabel, { color: colors.text }]}>
+                {uploadPhase === 'processing' ? 'サーバー処理中... Processing' : `アップロード中... ${uploadProgress}%`}
+              </Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+              <RNAnimated.View
+                style={[
+                  styles.progressBar,
+                  {
+                    backgroundColor: colors.primary,
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+            <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={cancelUpload}>
+              <FontAwesome name="times" size={12} color={colors.textSecondary} />
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Upload Button */}
         <TouchableOpacity
-          style={[styles.uploadBtn, { backgroundColor: colors.primary, opacity: uploading ? 0.75 : 1 }]}
+          style={[styles.uploadBtn, { backgroundColor: colors.primary, opacity: uploading ? 0.5 : 1 }]}
           onPress={handleUpload}
           disabled={uploading}
         >
           {uploading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <>
+              <ActivityIndicator color="#fff" size="small" style={{ marginRight: 10 }} />
+              <Text style={styles.uploadBtnText}>{uploadProgress}% Uploading...</Text>
+            </>
           ) : (
             <>
               <FontAwesome name="upload" size={15} color="#fff" style={{ marginRight: 10 }} />
@@ -260,6 +345,47 @@ const styles = StyleSheet.create({
     top: 10,
     right: 10,
   },
+  progressContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  progressLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  cancelBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   uploadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -267,7 +393,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
-    alignSelf: 'flex-end', // compact — not full width
+    alignSelf: 'flex-end',
     minWidth: 220,
   },
   uploadBtnText: {

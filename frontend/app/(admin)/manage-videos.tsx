@@ -118,6 +118,7 @@ export default function ManageVideosScreen() {
     });
 
     setEditModal(false);
+    setPopup({ visible: true, type: 'success', title: '成功', message: 'Video updated successfully!' });
 
     try {
       const res = await axios.put(`${API_URL}/videos/${editVideo._id}`, {
@@ -131,7 +132,6 @@ export default function ManageVideosScreen() {
         // Silently fetch in background to ensure total consistency for other shifted videos
         fetchVideos();
       }
-      setPopup({ visible: true, type: 'success', title: '成功', message: 'Video updated successfully!' });
     } catch (err: any) {
       fetchVideos(); // rollback
       setPopup({ visible: true, type: 'error', title: '失敗', message: err.response?.data?.msg || 'Update failed' });
@@ -158,9 +158,11 @@ export default function ManageVideosScreen() {
       return filtered;
     });
 
+    // Show success popup immediately (optimistic)
+    setPopup({ visible: true, type: 'success', title: '削除完了', message: `"${targetTitle}" deleted successfully.` });
+
     try {
       await axios.delete(`${API_URL}/videos/${targetId}`);
-      setPopup({ visible: true, type: 'success', title: '削除完了', message: `"${targetTitle}" deleted successfully.` });
     } catch (err: any) {
       // Rollback: re-add video on failure
       fetchVideos();
