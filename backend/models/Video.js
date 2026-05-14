@@ -12,6 +12,16 @@ const VideoSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    // Cloudinary CDN URL — used by the student app for video playback
+    url: {
+        type: String,
+        default: ''
+    },
+    // Cloudinary public_id — used for cleanup when video is deleted
+    cloudinaryPublicId: {
+        type: String,
+        default: ''
+    },
     jlptLevel: {
         type: String,
         enum: ['N5', 'N4', 'N3', 'N2', 'N1'],

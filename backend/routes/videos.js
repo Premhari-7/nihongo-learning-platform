@@ -3,10 +3,21 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { Readable } = require('stream');
+const { v2: cloudinary } = require('cloudinary');
 const Video = require('../models/Video');
 const Notification = require('../models/Notification');
 const Progress = require('../models/Progress');
 const { adminAuth } = require('../middleware/auth-middleware');
+
+// ─── Cloudinary configuration ────────────────────────────────────────────────
+// Reads from environment variables set on Railway dashboard
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure:     true
+});
 
 // Allowed video MIME types
 const ALLOWED_VIDEO_TYPES = [
@@ -17,22 +28,8 @@ const ALLOWED_VIDEO_TYPES = [
     'video/x-matroska'
 ];
 
-// Set up local storage for videos
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadPath = path.join(__dirname, '../uploads/videos');
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
-    },
-    filename: function (req, file, cb) {
-        const sanitized = file.originalname
-            .replace(/[^a-zA-Z0-9._-]/g, '_')
-            .substring(0, 100);
-        cb(null, Date.now() + '_' + sanitized);
-    }
-});
+// ─── Multer: memory storage (buffer sent directly to Cloudinary) ─────────────
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
     if (ALLOWED_VIDEO_TYPES.includes(file.mimetype)) {
@@ -44,9 +41,35 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 500 * 1024 * 1024 },
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
     fileFilter: fileFilter
 });
+
+// ─── Helper: upload buffer to Cloudinary ─────────────────────────────────────
+function uploadToCloudinary(buffer, filename, mimetype) {
+    return new Promise((resolve, reject) => {
+        const resourceType = 'video';
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                resource_type: resourceType,
+                folder: 'nihongo_videos',
+                public_id: path.parse(filename).name, // filename without extension
+                overwrite: false,
+                use_filename: true,
+                unique_filename: true
+            },
+            (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+            }
+        );
+        // Pipe the buffer into the upload stream
+        const readableStream = new Readable();
+        readableStream.push(buffer);
+        readableStream.push(null);
+        readableStream.pipe(uploadStream);
+    });
+}
 
 // ════════════════════════════════════════════════
 // IMPORTANT: Static path routes MUST come before /:id
@@ -54,7 +77,7 @@ const upload = multer({
 // ════════════════════════════════════════════════
 
 // @route   POST /api/videos/upload
-// @desc    Upload a new educational video (Admin only)
+// @desc    Upload a new educational video (Admin only) → stores on Cloudinary
 router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
     try {
         if (!req.file) {
@@ -77,16 +100,35 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             return res.status(400).json({ msg: 'Invalid section' });
         }
 
+        // ── Upload file buffer to Cloudinary ───────────────────────────────
+        let cloudinaryResult;
+        try {
+            cloudinaryResult = await uploadToCloudinary(
+                req.file.buffer,
+                req.file.originalname,
+                req.file.mimetype
+            );
+        } catch (cloudErr) {
+            console.error('Cloudinary upload error:', cloudErr);
+            return res.status(500).json({ msg: 'Video upload to cloud storage failed: ' + cloudErr.message });
+        }
+
         let videoOrder = parseInt(order) || 0;
         if (!videoOrder) {
             const count = await Video.countDocuments({ jlptLevel, section });
             videoOrder = count + 1;
         }
 
+        const sanitizedFilename = req.file.originalname
+            .replace(/[^a-zA-Z0-9._-]/g, '_')
+            .substring(0, 100);
+
         const newVideo = new Video({
             title,
             description: description || '',
-            filename: req.file.filename,
+            filename: Date.now() + '_' + sanitizedFilename, // kept for reference
+            url: cloudinaryResult.secure_url,               // ← CDN playback URL
+            cloudinaryPublicId: cloudinaryResult.public_id, // ← for cleanup on delete
             jlptLevel,
             section,
             order: videoOrder,
@@ -154,7 +196,6 @@ router.put('/reorder/batch', adminAuth, async (req, res) => {
         await Video.bulkWrite(bulkOps, { ordered: false });
 
         // Return updated videos for the affected section
-        // (avoids full refetch on the frontend)
         const firstVideo = await Video.findById(updates[0].id).lean();
         let updatedVideos = [];
         if (firstVideo) {
@@ -274,10 +315,21 @@ router.delete('/:id', adminAuth, async (req, res) => {
             return res.status(404).json({ msg: 'Video not found' });
         }
 
-        // Delete from local filesystem
-        const filePath = path.join(__dirname, '../uploads/videos', video.filename);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+        // ── Delete from Cloudinary (if uploaded via Cloudinary) ────────────
+        if (video.cloudinaryPublicId) {
+            try {
+                await cloudinary.uploader.destroy(video.cloudinaryPublicId, { resource_type: 'video' });
+                console.log(`Cloudinary: Deleted asset ${video.cloudinaryPublicId}`);
+            } catch (cloudErr) {
+                // Log but don't block the delete
+                console.error('Cloudinary deletion error (non-fatal):', cloudErr.message);
+            }
+        }
+
+        // ── Also delete local file if it still exists (legacy uploads) ─────
+        const localPath = path.join(__dirname, '../uploads/videos', video.filename);
+        if (fs.existsSync(localPath)) {
+            fs.unlinkSync(localPath);
         }
 
         // Cascade: Remove all progress records referencing this video

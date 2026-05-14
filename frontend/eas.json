@@ -17,7 +17,12 @@
         "EXPO_NEW_ARCHITECTURE_ENABLED": "1"
       }
     },
-    "production": {}
+    "production": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    }
   },
   "submit": {
     "production": {}

@@ -24,6 +24,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     const [durationMillis, setDurationMillis] = useState(0);
     const [isCompleted, setIsCompleted] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const [accumulatedWatchTime, setAccumulatedWatchTime] = useState(0);
     const lastUpdateMillisRef = useRef(0);
@@ -80,9 +81,15 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
 
     const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
         if (!status.isLoaded) {
-            if (status.error) console.error("Video Error:", status.error);
+            if (status.error) {
+                console.error("Video Error:", status.error, "URL:", videoUri);
+                setLoadError('Video failed to load. Please check your connection and try again.');
+                setIsLoading(false);
+            }
             return;
         }
+        // Clear any previous error once loaded successfully
+        if (loadError) setLoadError(null);
 
         setIsLoading(status.isBuffering);
         setIsPlaying(status.isPlaying);
@@ -210,6 +217,34 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
         const s = totalSeconds % 60;
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
+
+    const handleRetry = () => {
+        setLoadError(null);
+        setIsLoading(true);
+        // Force re-mount the Video component by toggling a key is handled by parent
+        // but we can try reloading here
+        videoRef.current?.unloadAsync().then(() => {
+            videoRef.current?.loadAsync({ uri: videoUri }, {}, false);
+        });
+    };
+
+    // ── Error UI ──────────────────────────────────────────────────────
+    if (loadError) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
+                <FontAwesome name="exclamation-triangle" size={40} color="#E63946" style={{ marginBottom: 12 }} />
+                <Text style={{ color: '#fff', fontSize: 15, textAlign: 'center', marginBottom: 16, paddingHorizontal: 20 }}>
+                    {loadError}
+                </Text>
+                <TouchableOpacity
+                    onPress={handleRetry}
+                    style={{ backgroundColor: Theme.colors.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 }}
+                >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Retry</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
