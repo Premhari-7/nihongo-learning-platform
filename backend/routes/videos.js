@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { Readable } = require('stream');
 const { v2: cloudinary } = require('cloudinary');
 const Video = require('../models/Video');
