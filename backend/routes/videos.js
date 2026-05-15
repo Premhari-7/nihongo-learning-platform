@@ -75,7 +75,7 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             return res.status(400).json({ msg: 'No video file provided' });
         }
 
-        console.log('[Upload] File received:', req.file.originalname, '| size:', req.file.size, 'bytes');
+        console.log("[UPLOAD] file received");
 
         const { title, description, jlptLevel, section, uploadedBy, order } = req.body;
 
@@ -100,7 +100,7 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
         let result;
         try {
             result = await streamUpload(req.file.buffer);
-            console.log('Cloudinary upload success:', result);
+            console.log("[CLOUDINARY] upload success");
         } catch (uploadErr) {
             console.error('[Upload] Cloudinary upload failed:', uploadErr);
             return res.status(500).json({ msg: 'Cloudinary upload failed: ' + (uploadErr.message || uploadErr) });
@@ -128,10 +128,10 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             uploadedBy: uploadedBy || 'admin'
         };
 
+        console.log("[MONGODB] saving document");
+        
         const newVideo = new Video(videoDoc);
         const savedVideo = await newVideo.save();
-
-        console.log('[Upload] MongoDB save success. Saved Video:', savedVideo);
 
         const newNotification = new Notification({
             message: `New ${jlptLevel} ${section} video available: ${title}`,
