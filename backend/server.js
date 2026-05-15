@@ -10,13 +10,23 @@ dotenv.config();
 
 const BUILD_VERSION = 'v2.1.0-cloudinary';
 console.log(`[SERVER] Starting ${BUILD_VERSION}`);
-console.log('[SERVER] Cloudinary env loaded:', 
+console.log('[SERVER] Cloudinary env loaded:',
     process.env.CLOUDINARY_CLOUD_NAME ? 'YES' : 'NO',
     process.env.CLOUDINARY_API_KEY ? 'YES' : 'NO',
     process.env.CLOUDINARY_API_SECRET ? 'YES' : 'NO'
 );
 
 const app = express();
+
+app.get("/api/debug/cloudinary-status", (req, res) => {
+  res.json({
+    version: "v2.1.0-cloudinary",
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? "SET" : "MISSING",
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? "SET" : "MISSING",
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? "SET" : "MISSING"
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -29,15 +39,6 @@ app.use(express.json({ limit: '10kb' }));
 // ── Health + Debug (BEFORE rate limiting) ────────────────────────────────────
 app.get('/', (req, res) => {
     res.send(`Nihongo Learning Platform API is running | ${BUILD_VERSION}`);
-});
-
-app.get('/api/debug/cloudinary-status', (req, res) => {
-    res.json({
-        version: BUILD_VERSION,
-        cloudinary_cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'MISSING',
-        api_key_status: process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
-        api_secret_status: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING'
-    });
 });
 
 // Rate Limiting
@@ -58,8 +59,8 @@ app.use('/api/auth/', authLimiter);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/nihongo')
-.then(() => console.log('MongoDB connected successfully'))
-.catch(err => console.error('MongoDB connection error:', err));
+    .then(() => console.log('MongoDB connected successfully'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
