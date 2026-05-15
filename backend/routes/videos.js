@@ -76,6 +76,14 @@ function uploadToCloudinary(buffer, filename, mimetype) {
 // Otherwise Express matches "reorder" as an :id param
 // ════════════════════════════════════════════════
 
+// Helper to harden Cloudinary URLs for strict browser mp4 playback
+const getTransformedCloudinaryUrl = (url) => {
+    if (url && url.includes('res.cloudinary.com') && url.includes('/upload/') && !url.includes('/upload/f_mp4,vc_auto/')) {
+        return url.replace('/upload/', '/upload/f_mp4,vc_auto/');
+    }
+    return url;
+};
+
 // @route   POST /api/videos/upload
 // @desc    Upload a new educational video (Admin only) → stores on Cloudinary
 router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
@@ -127,7 +135,7 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             title,
             description: description || '',
             filename: Date.now() + '_' + sanitizedFilename, // kept for reference
-            url: cloudinaryResult.secure_url,               // ← CDN playback URL
+            url: getTransformedCloudinaryUrl(cloudinaryResult.secure_url), // ← CDN playback URL hardened for web
             cloudinaryPublicId: cloudinaryResult.public_id, // ← for cleanup on delete
             jlptLevel,
             section,
@@ -164,7 +172,14 @@ router.get('/', async (req, res) => {
         const videos = await Video.find(query)
             .sort({ jlptLevel: 1, section: 1, order: 1 })
             .lean();
-        res.json(videos);
+            
+        // Apply transformation for backward compatibility on already uploaded videos
+        const transformedVideos = videos.map(v => ({
+            ...v,
+            url: getTransformedCloudinaryUrl(v.url)
+        }));
+            
+        res.json(transformedVideos);
     } catch (err) {
         console.error('Error fetching videos:', err);
         res.status(500).send('Server error');

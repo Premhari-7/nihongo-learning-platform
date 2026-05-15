@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useContext } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Dimensions, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Dimensions, ActivityIndicator, Platform } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { FontAwesome } from '@expo/vector-icons';
 import { Theme } from '../constants/Theme';
@@ -255,6 +255,8 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
                 useNativeControls={false} 
                 resizeMode={ResizeMode.CONTAIN}
                 onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+                // @ts-ignore - expo-av accepts videoProps for web but doesn't always type it properly
+                videoProps={Platform.OS === 'web' ? { crossOrigin: 'anonymous', preload: 'auto' } : undefined}
             />
             
             {/* Double Tap Gesture Zones */}
