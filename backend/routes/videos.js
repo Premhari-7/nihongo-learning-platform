@@ -12,10 +12,20 @@ const { adminAuth } = require('../middleware/auth-middleware');
 
 // ─── Cloudinary configuration ────────────────────────────────────────────────
 // Reads from environment variables set on Railway dashboard
+const CLOUD_NAME  = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUD_KEY   = process.env.CLOUDINARY_API_KEY;
+const CLOUD_SECRET = process.env.CLOUDINARY_API_SECRET;
+
+console.log('[Cloudinary] Config check →',
+    'cloud_name:', CLOUD_NAME ? `"${CLOUD_NAME}"` : '⚠️ MISSING',
+    '| api_key:', CLOUD_KEY ? `"${CLOUD_KEY.substring(0,4)}…"` : '⚠️ MISSING',
+    '| api_secret:', CLOUD_SECRET ? '(set)' : '⚠️ MISSING'
+);
+
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key:    process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: CLOUD_NAME,
+    api_key:    CLOUD_KEY,
+    api_secret: CLOUD_SECRET,
     secure:     true
 });
 
@@ -48,18 +58,21 @@ const upload = multer({
 // ─── Helper: upload buffer to Cloudinary ─────────────────────────────────────
 function uploadToCloudinary(buffer, filename, mimetype) {
     return new Promise((resolve, reject) => {
-        const resourceType = 'video';
+        console.log('[Cloudinary] Starting upload_stream for:', filename, '| size:', buffer.length, 'bytes | mime:', mimetype);
         const uploadStream = cloudinary.uploader.upload_stream(
             {
-                resource_type: resourceType,
+                resource_type: 'video',
                 folder: 'nihongo_videos',
-                public_id: path.parse(filename).name, // filename without extension
+                public_id: Date.now() + '_' + path.parse(filename).name.replace(/[^a-zA-Z0-9_-]/g, '_'),
                 overwrite: false,
-                use_filename: true,
                 unique_filename: true
             },
             (error, result) => {
-                if (error) return reject(error);
+                if (error) {
+                    console.error('[Cloudinary] upload_stream ERROR:', error);
+                    return reject(error);
+                }
+                console.log('[Cloudinary] upload_stream SUCCESS → secure_url:', result.secure_url, '| public_id:', result.public_id);
                 resolve(result);
             }
         );
@@ -92,6 +105,8 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             return res.status(400).json({ msg: 'No video file provided' });
         }
 
+        console.log('[Upload] Received file:', req.file.originalname, '| size:', req.file.size, '| mime:', req.file.mimetype);
+
         const { title, description, jlptLevel, section, uploadedBy, order } = req.body;
 
         if (!title || !jlptLevel || !section) {
@@ -108,6 +123,12 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             return res.status(400).json({ msg: 'Invalid section' });
         }
 
+        // ── Validate Cloudinary config before attempting upload ─────────────
+        if (!CLOUD_NAME || !CLOUD_KEY || !CLOUD_SECRET) {
+            console.error('[Upload] FATAL: Cloudinary environment variables not configured!');
+            return res.status(500).json({ msg: 'Server misconfiguration: Cloudinary credentials missing. Contact admin.' });
+        }
+
         // ── Upload file buffer to Cloudinary ───────────────────────────────
         let cloudinaryResult;
         try {
@@ -117,9 +138,18 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
                 req.file.mimetype
             );
         } catch (cloudErr) {
-            console.error('Cloudinary upload error:', cloudErr);
+            console.error('[Upload] Cloudinary upload FAILED:', cloudErr);
             return res.status(500).json({ msg: 'Video upload to cloud storage failed: ' + cloudErr.message });
         }
+
+        // ── Validate Cloudinary response ───────────────────────────────────
+        if (!cloudinaryResult || !cloudinaryResult.secure_url || !cloudinaryResult.public_id) {
+            console.error('[Upload] Cloudinary returned incomplete result:', JSON.stringify(cloudinaryResult));
+            return res.status(500).json({ msg: 'Cloud storage returned an invalid response. Please retry.' });
+        }
+
+        const videoUrl = getTransformedCloudinaryUrl(cloudinaryResult.secure_url);
+        console.log('[Upload] Transformed URL:', videoUrl);
 
         let videoOrder = parseInt(order) || 0;
         if (!videoOrder) {
@@ -131,19 +161,24 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             .replace(/[^a-zA-Z0-9._-]/g, '_')
             .substring(0, 100);
 
-        const newVideo = new Video({
+        const videoPayload = {
             title,
             description: description || '',
-            filename: Date.now() + '_' + sanitizedFilename, // kept for reference
-            url: getTransformedCloudinaryUrl(cloudinaryResult.secure_url), // ← CDN playback URL hardened for web
-            cloudinaryPublicId: cloudinaryResult.public_id, // ← for cleanup on delete
+            filename: Date.now() + '_' + sanitizedFilename,
+            url: videoUrl,
+            cloudinaryPublicId: cloudinaryResult.public_id,
             jlptLevel,
             section,
             order: videoOrder,
             uploadedBy: uploadedBy || 'admin'
-        });
+        };
 
+        console.log('[Upload] Saving to MongoDB:', JSON.stringify(videoPayload, null, 2));
+
+        const newVideo = new Video(videoPayload);
         const savedVideo = await newVideo.save();
+
+        console.log('[Upload] MongoDB saved! _id:', savedVideo._id, '| url:', savedVideo.url, '| publicId:', savedVideo.cloudinaryPublicId);
 
         const newNotification = new Notification({
             message: `New ${jlptLevel} ${section} video available: ${title}`,
@@ -155,7 +190,7 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
 
         res.json(savedVideo);
     } catch (err) {
-        console.error('Video upload error:', err);
+        console.error('[Upload] Unhandled error:', err);
         res.status(500).json({ msg: 'Server error: ' + err.message });
     }
 });
