@@ -190,10 +190,7 @@ export default function LearnDashboard() {
                         ) : (
                             <View style={{ width: '100%', aspectRatio: 16/9, backgroundColor: '#1a1a1a', borderRadius: 16, borderWidth: 2, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
                                 <FontAwesome name="exclamation-triangle" size={36} color="#E63946" style={{ marginBottom: 10 }} />
-                                <Text style={{ color: '#fff', fontSize: 15, fontWeight: 'bold', marginBottom: 6 }}>Video Unavailable</Text>
-                                <Text style={{ color: '#aaa', fontSize: 13, textAlign: 'center', paddingHorizontal: 30 }}>
-                                    This video was uploaded before cloud storage was enabled. Please ask admin to re-upload it.
-                                </Text>
+                                <Text style={{ color: '#fff', fontSize: 15, fontWeight: 'bold', marginBottom: 6 }}>Video unavailable. Please re-upload.</Text>
                             </View>
                         )}
 

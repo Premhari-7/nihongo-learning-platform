@@ -15,3 +15,9 @@ services:
         sync: false
       - key: ADMIN_CODE
         value: 25112006
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

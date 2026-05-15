@@ -8,11 +8,13 @@ const { adminAuth } = require('./middleware/auth-middleware');
 
 dotenv.config();
 
-const BUILD_VERSION = 'v2.1.0-cloudinary-2b75873';
-console.log(`[SERVER] Starting ${BUILD_VERSION} at ${new Date().toISOString()}`);
-console.log('[SERVER] CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME || '❌ NOT SET');
-console.log('[SERVER] CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? '✅ SET' : '❌ NOT SET');
-console.log('[SERVER] CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✅ SET' : '❌ NOT SET');
+const BUILD_VERSION = 'v2.1.0-cloudinary';
+console.log(`[SERVER] Starting ${BUILD_VERSION}`);
+console.log('[SERVER] Cloudinary env loaded:', 
+    process.env.CLOUDINARY_CLOUD_NAME ? 'YES' : 'NO',
+    process.env.CLOUDINARY_API_KEY ? 'YES' : 'NO',
+    process.env.CLOUDINARY_API_SECRET ? 'YES' : 'NO'
+);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,12 +34,9 @@ app.get('/', (req, res) => {
 app.get('/api/debug/cloudinary-status', (req, res) => {
     res.json({
         version: BUILD_VERSION,
-        CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? 'SET (' + process.env.CLOUDINARY_CLOUD_NAME + ')' : 'MISSING',
-        CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
-        CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING',
-        NODE_ENV: process.env.NODE_ENV || 'not set',
-        MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'MISSING',
-        serverTime: new Date().toISOString()
+        cloudinary_cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'MISSING',
+        api_key_status: process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
+        api_secret_status: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING'
     });
 });
 
@@ -75,4 +74,3 @@ app.use('/api/certificates', require('./routes/certificates'));
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER] ${BUILD_VERSION} listening on port ${PORT}`);
 });
-

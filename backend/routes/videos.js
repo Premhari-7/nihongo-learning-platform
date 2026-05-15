@@ -16,7 +16,7 @@ cloudinary.config({
 });
 
 console.log('[videos.js] Cloudinary config loaded:',
-    'cloud_name=', process.env.CLOUDINARY_CLOUD_NAME || 'MISSING',
+    'cloud_name=', process.env.CLOUDINARY_CLOUD_NAME ? 'SET' : 'MISSING',
     'api_key=', process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
     'api_secret=', process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING'
 );
@@ -38,7 +38,6 @@ const upload = multer({
 // ─── Cloudinary stream upload using stream.end(buffer) ───────────────────────
 const streamUpload = (buffer) => {
     return new Promise((resolve, reject) => {
-        console.log('[streamUpload] Starting upload_stream, buffer size:', buffer.length, 'bytes');
         const stream = cloudinary.uploader.upload_stream(
             {
                 resource_type: 'video',
@@ -46,15 +45,8 @@ const streamUpload = (buffer) => {
             },
             (error, result) => {
                 if (result) {
-                    console.log('[streamUpload] SUCCESS:', JSON.stringify({
-                        secure_url: result.secure_url,
-                        public_id: result.public_id,
-                        format: result.format,
-                        bytes: result.bytes
-                    }));
                     resolve(result);
                 } else {
-                    console.error('[streamUpload] FAILED:', error);
                     reject(error);
                 }
             }
@@ -78,15 +70,13 @@ const getTransformedUrl = (url) => {
 // ─── POST /api/videos/upload ─────────────────────────────────────────────────
 router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
     try {
-        // 1. Validate file exists
+        console.log('[Upload] Upload started');
         if (!req.file) {
             return res.status(400).json({ msg: 'No video file provided' });
         }
 
-        console.log('[Upload] File received:', req.file.originalname, '| size:', req.file.size, '| mime:', req.file.mimetype);
-        console.log('[Upload] Buffer exists:', !!req.file.buffer, '| Buffer length:', req.file.buffer ? req.file.buffer.length : 0);
+        console.log('[Upload] File received:', req.file.originalname, '| size:', req.file.size, 'bytes');
 
-        // 2. Validate form fields
         const { title, description, jlptLevel, section, uploadedBy, order } = req.body;
 
         if (!title || !jlptLevel || !section) {
@@ -101,45 +91,35 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             return res.status(400).json({ msg: 'Invalid section' });
         }
 
-        // 3. Validate Cloudinary config
         if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
             console.error('[Upload] FATAL: Cloudinary env vars missing!');
             return res.status(500).json({ msg: 'Server misconfiguration: Cloudinary credentials missing.' });
         }
 
-        // 4. Upload to Cloudinary using stream.end(buffer)
-        console.log('[Upload] Calling streamUpload...');
+        console.log('[Upload] Cloudinary upload started');
         let result;
         try {
             result = await streamUpload(req.file.buffer);
+            console.log('Cloudinary upload success:', result);
         } catch (uploadErr) {
-            console.error('[Upload] Cloudinary upload error:', uploadErr);
+            console.error('[Upload] Cloudinary upload failed:', uploadErr);
             return res.status(500).json({ msg: 'Cloudinary upload failed: ' + (uploadErr.message || uploadErr) });
         }
 
-        // 5. Validate Cloudinary response
         if (!result || !result.secure_url || !result.public_id) {
-            console.error('[Upload] Cloudinary returned incomplete result:', JSON.stringify(result));
+            console.error('[Upload] Cloudinary returned incomplete result');
             return res.status(500).json({ msg: 'Cloudinary returned invalid response. Please retry.' });
         }
 
-        console.log('[Upload] Cloudinary upload success:', result.secure_url);
-
-        // 6. Prepare MongoDB document
         let videoOrder = parseInt(order) || 0;
         if (!videoOrder) {
             const count = await Video.countDocuments({ jlptLevel, section });
             videoOrder = count + 1;
         }
 
-        const sanitizedFilename = req.file.originalname
-            .replace(/[^a-zA-Z0-9._-]/g, '_')
-            .substring(0, 100);
-
         const videoDoc = {
             title,
             description: description || '',
-            filename: Date.now() + '_' + sanitizedFilename,
             url: getTransformedUrl(result.secure_url),
             cloudinaryPublicId: result.public_id,
             jlptLevel,
@@ -148,15 +128,11 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             uploadedBy: uploadedBy || 'admin'
         };
 
-        console.log('[Upload] MongoDB payload:', JSON.stringify(videoDoc));
-
-        // 7. Save to MongoDB
         const newVideo = new Video(videoDoc);
         const savedVideo = await newVideo.save();
 
-        console.log('[Upload] MongoDB SAVED! id:', savedVideo._id, 'url:', savedVideo.url, 'cloudinaryPublicId:', savedVideo.cloudinaryPublicId);
+        console.log('[Upload] MongoDB save success. Saved Video:', savedVideo);
 
-        // 8. Create notification
         const newNotification = new Notification({
             message: `New ${jlptLevel} ${section} video available: ${title}`,
             type: 'video_upload',
@@ -167,7 +143,7 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
 
         res.json(savedVideo);
     } catch (err) {
-        console.error('[Upload] UNHANDLED ERROR:', err);
+        console.error('[Upload] Unhandled error:', err);
         res.status(500).json({ msg: 'Server error: ' + err.message });
     }
 });
@@ -184,10 +160,16 @@ router.get('/', async (req, res) => {
             .sort({ jlptLevel: 1, section: 1, order: 1 })
             .lean();
 
-        // Apply f_mp4 transformation for backward compatibility
         const transformedVideos = videos.map(v => ({
-            ...v,
-            url: getTransformedUrl(v.url)
+            title: v.title,
+            description: v.description,
+            url: getTransformedUrl(v.url),
+            cloudinaryPublicId: v.cloudinaryPublicId,
+            jlptLevel: v.jlptLevel,
+            section: v.section,
+            order: v.order,
+            _id: v._id,
+            uploadedBy: v.uploadedBy
         }));
 
         res.json(transformedVideos);
