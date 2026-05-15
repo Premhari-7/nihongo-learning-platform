@@ -15,6 +15,7 @@ interface SecureVideoPlayerProps {
 
 export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: SecureVideoPlayerProps) {
     const videoRef = useRef<Video>(null);
+    const htmlVideoRef = useRef<HTMLVideoElement>(null);
     const { user } = useContext(AuthContext);
     const { selectedCourse } = useContext(CourseContext);
     
@@ -23,20 +24,18 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     const [currentPositionMillis, setCurrentPositionMillis] = useState(0);
     const [durationMillis, setDurationMillis] = useState(0);
     const [isCompleted, setIsCompleted] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(Platform.OS !== 'web');
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const [accumulatedWatchTime, setAccumulatedWatchTime] = useState(0);
     const lastUpdateMillisRef = useRef(0);
     
-    // Controls visibility timeout
     const [showControls, setShowControls] = useState(true);
     const controlsTimeoutRef = useRef<any>(null);
 
     const [progressBarWidth, setProgressBarWidth] = useState(0);
     const highestWatchedMillisRef = useRef(0);
 
-    // Auto-save progress interval
     useEffect(() => {
         const interval = setInterval(() => {
             if (accumulatedWatchTime > 0 && selectedCourse && user) {
@@ -46,15 +45,17 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
         return () => clearInterval(interval);
     }, [accumulatedWatchTime, selectedCourse, user]);
 
-    // Setup initial controls timeout
     useEffect(() => {
-        resetControlsTimeout();
+        if (Platform.OS !== 'web') {
+            resetControlsTimeout();
+        }
         return () => {
             if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
         };
     }, []);
 
     const resetControlsTimeout = () => {
+        if (Platform.OS === 'web') return;
         setShowControls(true);
         if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
         controlsTimeoutRef.current = setTimeout(() => {
@@ -71,11 +72,78 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
                 userId: userId,
                 courseId: selectedCourse?.id,
                 videoId: videoId,
-                highestWatched: accumulatedWatchTime, // Store actual watched time in this field
+                highestWatched: accumulatedWatchTime,
                 isCompleted: forceComplete || isCompleted
             });
         } catch (err) {
             console.error('Failed to save progress', err);
+        }
+    };
+
+    const handleWebTimeUpdate = (e: any) => {
+        const video = e.target;
+        const positionMillis = video.currentTime * 1000;
+        const durationM = video.duration * 1000 || 0;
+        
+        setCurrentPositionMillis(positionMillis);
+        setDurationMillis(durationM);
+        
+        const now = Date.now();
+        if (positionMillis > highestWatchedMillisRef.current) {
+            if (positionMillis <= highestWatchedMillisRef.current + 2500 * playbackRate) {
+                highestWatchedMillisRef.current = positionMillis;
+            } else {
+                video.currentTime = highestWatchedMillisRef.current / 1000;
+            }
+        }
+        
+        if (lastUpdateMillisRef.current > 0 && isPlaying) {
+            const delta = now - lastUpdateMillisRef.current;
+            if (delta < 2000) {
+                setAccumulatedWatchTime(prev => prev + (delta * playbackRate));
+            }
+        }
+        lastUpdateMillisRef.current = now;
+        
+        if (durationM && !isCompleted) {
+            const percentageWatched = accumulatedWatchTime / durationM;
+            if (percentageWatched > 0.95 || (video.ended && percentageWatched > 0.90)) {
+                setIsCompleted(true);
+                saveProgress(true).then(() => {
+                    onComplete();
+                });
+            }
+        }
+    };
+
+    const handleWebPlay = () => {
+        setIsPlaying(true);
+        lastUpdateMillisRef.current = Date.now();
+    };
+
+    const handleWebPause = () => {
+        setIsPlaying(false);
+        lastUpdateMillisRef.current = 0;
+    };
+
+    const handleWebLoadedMetadata = (e: any) => {
+        setLoadError(null);
+        setDurationMillis(e.target.duration * 1000);
+    };
+
+    const handleWebError = (e: any) => {
+        console.error("Web Video Error", e.nativeEvent);
+        setLoadError('Video failed to load. Please check your connection and try again.');
+    };
+
+    const handleWebEnded = () => {
+        const durationM = durationMillis || (htmlVideoRef.current?.duration || 0) * 1000;
+        if (durationM && !isCompleted) {
+            const percentageWatched = accumulatedWatchTime / durationM;
+            if (percentageWatched > 0.90) {
+                setIsCompleted(true);
+                saveProgress(true).then(() => onComplete());
+            }
         }
     };
 
@@ -88,7 +156,6 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
             }
             return;
         }
-        // Clear any previous error once loaded successfully
         if (loadError) setLoadError(null);
 
         setIsLoading(status.isBuffering);
@@ -98,10 +165,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
 
         if (status.isPlaying) {
             const now = Date.now();
-            
-            // Highest Watched Tracker (Anti-Cheat)
             if (status.positionMillis > highestWatchedMillisRef.current) {
-                // If it jumps more than 2.5 seconds naturally, they cheated via hack/DOM manipulation. Snap them back!
                 if (status.positionMillis <= highestWatchedMillisRef.current + 2500 * playbackRate) {
                     highestWatchedMillisRef.current = status.positionMillis;
                 } else {
@@ -120,7 +184,6 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
             lastUpdateMillisRef.current = 0;
         }
 
-        // Check completion (95% rule based on actual watched time)
         if (status.durationMillis && !isCompleted) {
             const percentageWatched = accumulatedWatchTime / status.durationMillis;
             if (percentageWatched > 0.95 || (status.didJustFinish && percentageWatched > 0.90)) {
@@ -145,7 +208,6 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     const handleTapLeft = async () => {
         const now = Date.now();
         if (now - lastTapLeftRef.current < 300) {
-            // Double tap!
             if (!videoRef.current) return;
             const status = await videoRef.current.getStatusAsync();
             if (status.isLoaded) {
@@ -162,12 +224,10 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     const handleTapRight = async () => {
         const now = Date.now();
         if (now - lastTapRightRef.current < 300) {
-            // Double tap!
             if (!videoRef.current) return;
             const status = await videoRef.current.getStatusAsync();
             if (status.isLoaded && status.durationMillis) {
                 const newPosition = Math.min(status.durationMillis, status.positionMillis + 10000);
-                // Restrict forward skip to highest watched
                 if (newPosition <= highestWatchedMillisRef.current) {
                     await videoRef.current.setPositionAsync(newPosition);
                 } else {
@@ -184,14 +244,12 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
         resetControlsTimeout();
         if (!durationMillis || !progressBarWidth || !videoRef.current) return;
         
-        // Use nativeEvent.offsetX for web fallback if locationX is undefined
         const clickX = evt.nativeEvent.locationX !== undefined ? evt.nativeEvent.locationX : evt.nativeEvent.offsetX;
         if (clickX === undefined) return;
         
         const percentage = clickX / progressBarWidth;
         const newPosition = percentage * durationMillis;
 
-        // Restrict scrubbing past what they've already watched
         if (newPosition <= highestWatchedMillisRef.current) {
             videoRef.current.setPositionAsync(newPosition);
         } else {
@@ -221,14 +279,17 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     const handleRetry = () => {
         setLoadError(null);
         setIsLoading(true);
-        // Force re-mount the Video component by toggling a key is handled by parent
-        // but we can try reloading here
-        videoRef.current?.unloadAsync().then(() => {
-            videoRef.current?.loadAsync({ uri: videoUri }, {}, false);
-        });
+        if (Platform.OS === 'web') {
+            if (htmlVideoRef.current) {
+                htmlVideoRef.current.load();
+            }
+        } else {
+            videoRef.current?.unloadAsync().then(() => {
+                videoRef.current?.loadAsync({ uri: videoUri }, {}, false);
+            });
+        }
     };
 
-    // ── Error UI ──────────────────────────────────────────────────────
     if (loadError) {
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
@@ -246,6 +307,31 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
         );
     }
 
+    if (Platform.OS === 'web') {
+        return (
+            <View style={styles.container}>
+                {/* @ts-ignore */}
+                <video
+                    ref={htmlVideoRef as any}
+                    src={videoUri}
+                    controls
+                    preload="metadata"
+                    crossOrigin="anonymous"
+                    playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    onTimeUpdate={handleWebTimeUpdate}
+                    onPlay={handleWebPlay}
+                    onPause={handleWebPause}
+                    onLoadedMetadata={handleWebLoadedMetadata}
+                    onError={handleWebError}
+                    onEnded={handleWebEnded}
+                >
+                    <source src={videoUri} type="video/mp4" />
+                </video>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <Video
@@ -255,21 +341,15 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
                 useNativeControls={false} 
                 resizeMode={ResizeMode.CONTAIN}
                 onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-                // @ts-ignore - expo-av accepts videoProps for web but doesn't always type it properly
-                videoProps={Platform.OS === 'web' ? { crossOrigin: 'anonymous', preload: 'auto' } : undefined}
             />
             
-            {/* Double Tap Gesture Zones */}
             <View style={styles.gestureOverlay}>
                 <TouchableOpacity style={styles.gestureZone} onPress={handleTapLeft} activeOpacity={1} />
                 <TouchableOpacity style={styles.gestureZone} onPress={handleTapRight} activeOpacity={1} />
             </View>
 
-            {/* Custom Control Overlay */}
             {showControls && (
                 <View style={styles.controlsOverlay} pointerEvents="box-none">
-                    
-                    {/* Center Play/Pause & Loader */}
                     <View style={styles.centerControls} pointerEvents="box-none">
                         {isLoading ? (
                             <ActivityIndicator size="large" color={Theme.colors.primary} />
@@ -280,7 +360,6 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
                         )}
                     </View>
 
-                    {/* Bottom Controls */}
                     <View style={styles.bottomBar}>
                         <TouchableOpacity 
                             activeOpacity={1} 
@@ -372,7 +451,7 @@ const styles = StyleSheet.create({
     bottomBar: {
         width: '100%',
         padding: 15,
-        paddingTop: 30, // For gradient feeling
+        paddingTop: 30,
         backgroundColor: 'rgba(0,0,0,0.6)',
     },
     progressBarBg: {
