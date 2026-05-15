@@ -341,11 +341,7 @@ router.delete('/:id', adminAuth, async (req, res) => {
             }
         }
 
-        // ── Also delete local file if it still exists (legacy uploads) ─────
-        const localPath = path.join(__dirname, '../uploads/videos', video.filename);
-        if (fs.existsSync(localPath)) {
-            fs.unlinkSync(localPath);
-        }
+
 
         // Cascade: Remove all progress records referencing this video
         const deletedProgress = await Progress.deleteMany({ videoId: req.params.id });

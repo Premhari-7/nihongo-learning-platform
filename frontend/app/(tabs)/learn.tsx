@@ -182,13 +182,7 @@ export default function LearnDashboard() {
 
                         <SecureVideoPlayer
                             key={currentVideo._id} // force remount on video change
-                            videoUri={
-                                // Prefer Cloudinary CDN URL (persistent across deployments)
-                                // Fall back to old constructed path only for legacy records
-                                currentVideo.url && currentVideo.url.startsWith('http')
-                                    ? currentVideo.url
-                                    : `${API_URL.replace('/api', '')}/uploads/videos/${currentVideo.filename}`
-                            }
+                            videoUri={currentVideo.url || ''}
                             videoId={currentVideo._id}
                             onComplete={handleVideoComplete}
                         />
