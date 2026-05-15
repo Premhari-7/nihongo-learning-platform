@@ -17,6 +17,7 @@ console.log('[SERVER] Cloudinary env loaded:',
 );
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.get("/api/debug/cloudinary-status", (req, res) => {
 console.log("[DEBUG] Cloudinary status endpoint hit");
