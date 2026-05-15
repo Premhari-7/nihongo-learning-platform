@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./frontend/assets/icon.png" alt="Nihongo Learning Platform Logo" width="120" />
-  <h1>🌸 Nihongo Learning Platform 🌸</h1>
+  <h1><img src="https://api.iconify.design/lucide/graduation-cap.svg?color=%23c0392b" width="32" align="center" /> Nihongo Learning Platform</h1>
   <p><em>A comprehensive, production-ready Japanese language learning platform.</em></p>
 
   [![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
@@ -16,32 +16,32 @@
 
 ---
 
-## 🌟 Overview
+## <img src="https://api.iconify.design/lucide/info.svg?color=%23c0392b" width="24" align="center" /> Overview
 
 The **Nihongo Learning Platform** combines a beautifully crafted mobile-first interface with a powerful administrative backend. It features an integrated JLPT curriculum, dynamic quizzes, real-time AI assistance, and an administrative dashboard for full control over content distribution. The project is fully configured for cloud deployment on Railway and APK distribution via Expo Application Services (EAS).
 
 ---
 
-## ✨ Key Features
+## <img src="https://api.iconify.design/lucide/star.svg?color=%23c0392b" width="24" align="center" /> Key Features
 
-- 📚 **JLPT Learning System**: Structured progression tracks for Kanji and Vocabulary spanning all JLPT levels (N5-N1).
-- ⚙️ **Admin Dashboard**: A secure management interface allowing administrators to instantly upload, reorder, and delete educational videos with fully optimistic UI updates.
-- 🎯 **Dynamic Quizzes**: Auto-evaluating assessments that unlock sequential learning modules upon successful completion.
-- 🤖 **AI Chatbot Integration**: A responsive AI tutor built on the Groq API to provide students with instant Japanese language guidance and explanations.
-- 📜 **Certificates System**: Automated generation of completion certificates for successfully mastering specific JLPT tiers.
-- 🔒 **Secure Authentication**: Robust JWT-based authentication system supporting role-based access control (Admin vs. Student).
-- 🌙 **Dark Mode**: Fully adaptive responsive UI with custom dynamic theme support.
+- <img src="https://api.iconify.design/lucide/book-open.svg?color=%23c0392b" width="16" align="center" /> **JLPT Learning System**: Structured progression tracks for Kanji and Vocabulary spanning all JLPT levels (N5-N1).
+- <img src="https://api.iconify.design/lucide/settings.svg?color=%23c0392b" width="16" align="center" /> **Admin Dashboard**: A secure management interface allowing administrators to instantly upload, reorder, and delete educational videos with fully optimistic UI updates.
+- <img src="https://api.iconify.design/lucide/target.svg?color=%23c0392b" width="16" align="center" /> **Dynamic Quizzes**: Auto-evaluating assessments that unlock sequential learning modules upon successful completion.
+- <img src="https://api.iconify.design/lucide/bot.svg?color=%23c0392b" width="16" align="center" /> **AI Chatbot Integration**: A responsive AI tutor built on the Groq API to provide students with instant Japanese language guidance and explanations.
+- <img src="https://api.iconify.design/lucide/award.svg?color=%23c0392b" width="16" align="center" /> **Certificates System**: Automated generation of completion certificates for successfully mastering specific JLPT tiers.
+- <img src="https://api.iconify.design/lucide/lock.svg?color=%23c0392b" width="16" align="center" /> **Secure Authentication**: Robust JWT-based authentication system supporting role-based access control (Admin vs. Student).
+- <img src="https://api.iconify.design/lucide/moon.svg?color=%23c0392b" width="16" align="center" /> **Dark Mode**: Fully adaptive responsive UI with custom dynamic theme support.
 
 ---
 
-## 🛠 Technologies Used
+## <img src="https://api.iconify.design/lucide/wrench.svg?color=%23c0392b" width="24" align="center" /> Technologies Used
 
-### Frontend 📱
+### Frontend <img src="https://api.iconify.design/lucide/smartphone.svg?color=%23c0392b" width="20" align="center" />
 - **React Native & Expo SDK 54**: For cross-platform mobile application development.
 - **TypeScript**: Ensuring type safety and scalable code architecture.
 - **Axios**: For robust API communication and interceptor-based token management.
 
-### Backend 🖥️
+### Backend <img src="https://api.iconify.design/lucide/server.svg?color=%23c0392b" width="20" align="center" />
 - **Node.js & Express.js**: Providing a high-performance RESTful API backend.
 - **MongoDB Atlas**: Cloud-hosted NoSQL database for secure, scalable data persistence.
 - **Mongoose**: For structured schema enforcement and optimized query building.
@@ -49,13 +49,13 @@ The **Nihongo Learning Platform** combines a beautifully crafted mobile-first in
 - **Groq AI**: Powering the integrated conversational AI tutor.
 - **Cloudinary**: Robust cloud media storage pipeline for persistent video streaming.
 
-### Cloud & Deployment ☁️
+### Cloud & Deployment <img src="https://api.iconify.design/lucide/cloud.svg?color=%23c0392b" width="20" align="center" />
 - **Railway**: Continuous integration and deployment pipeline for the Express backend.
 - **EAS (Expo Application Services)**: Cloud-native APK build generation.
 
 ---
 
-## 🏗 Architecture Overview
+## <img src="https://api.iconify.design/lucide/layers.svg?color=%23c0392b" width="24" align="center" /> Architecture Overview
 
 The system follows a standard decoupled Client-Server architecture:
 1. **Client Layer**: The React Native Expo application provides the interface. It securely manages JWT tokens in local storage and interacts with the API layer via strictly typed Axios endpoints.
@@ -64,7 +64,7 @@ The system follows a standard decoupled Client-Server architecture:
 
 ---
 
-## 📸 Screenshots
+## <img src="https://api.iconify.design/lucide/image.svg?color=%23c0392b" width="24" align="center" /> Screenshots
 
 <div align="center">
   <table>
@@ -83,7 +83,7 @@ The system follows a standard decoupled Client-Server architecture:
 
 ---
 
-## 🚀 Setup Instructions
+## <img src="https://api.iconify.design/lucide/rocket.svg?color=%23c0392b" width="24" align="center" /> Setup Instructions
 
 ### Prerequisites
 - Node.js (v18+)
@@ -122,7 +122,7 @@ The system follows a standard decoupled Client-Server architecture:
 
 ---
 
-## ☁️ Cloud Deployment
+## <img src="https://api.iconify.design/lucide/cloud-upload.svg?color=%23c0392b" width="24" align="center" /> Cloud Deployment
 
 ### Railway Deployment (Backend)
 The backend is fully configured for immediate deployment via Railway. 
@@ -139,7 +139,7 @@ To generate a production-ready Android APK:
 
 ---
 
-## 🔮 Future Improvements
+## <img src="https://api.iconify.design/lucide/lightbulb.svg?color=%23c0392b" width="24" align="center" /> Future Improvements
 
 - **Gamification Enhancements**: Implementing daily streaks and global leaderboards.
 - **Offline Mode**: Local caching of specific video modules for offline studying.
@@ -148,13 +148,13 @@ To generate a production-ready Android APK:
 
 ---
 
-## 👤 Author
+## <img src="https://api.iconify.design/lucide/user.svg?color=%23c0392b" width="24" align="center" /> Author
 
 **Prem Hari S**
 - Project Creator & Lead Developer
 
 ---
 
-## 📝 License
+## <img src="https://api.iconify.design/lucide/file-text.svg?color=%23c0392b" width="24" align="center" /> License
 
 This project was created and developed by **Prem Hari S**. All rights reserved.
