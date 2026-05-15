@@ -35,26 +35,6 @@ const upload = multer({
     }
 });
 
-// ─── Cloudinary stream upload using stream.end(buffer) ───────────────────────
-const streamUpload = (buffer) => {
-    return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-            {
-                resource_type: 'video',
-                folder: 'nihongo_videos'
-            },
-            (error, result) => {
-                if (result) {
-                    resolve(result);
-                } else {
-                    reject(error);
-                }
-            }
-        );
-        stream.end(buffer);
-    });
-};
-
 // Helper: harden Cloudinary URLs for browser mp4 playback
 const getTransformedUrl = (url) => {
     if (url && url.includes('res.cloudinary.com') && url.includes('/upload/') && !url.includes('/upload/f_mp4,vc_auto/')) {
@@ -97,10 +77,25 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
         }
 
         console.log('[Upload] Cloudinary upload started');
+        
         let result;
         try {
-            result = await streamUpload(req.file.buffer);
+            result = await new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    {
+                        resource_type: "video",
+                        folder: "nihongo_videos"
+                    },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                
+                stream.end(req.file.buffer);
+            });
             console.log("[CLOUDINARY] upload success");
+            console.log(result);
         } catch (uploadErr) {
             console.error('[Upload] Cloudinary upload failed:', uploadErr);
             return res.status(500).json({ msg: 'Cloudinary upload failed: ' + (uploadErr.message || uploadErr) });
@@ -117,7 +112,9 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             videoOrder = count + 1;
         }
 
-        const videoDoc = {
+        console.log("[MONGODB] saving document");
+
+        const video = new Video({
             title,
             description: description || '',
             url: getTransformedUrl(result.secure_url),
@@ -126,12 +123,9 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             section,
             order: videoOrder,
             uploadedBy: uploadedBy || 'admin'
-        };
+        });
 
-        console.log("[MONGODB] saving document");
-        
-        const newVideo = new Video(videoDoc);
-        const savedVideo = await newVideo.save();
+        const savedVideo = await video.save();
 
         const newNotification = new Notification({
             message: `New ${jlptLevel} ${section} video available: ${title}`,

@@ -19,12 +19,14 @@ console.log('[SERVER] Cloudinary env loaded:',
 const app = express();
 
 app.get("/api/debug/cloudinary-status", (req, res) => {
-  res.json({
-    version: "v2.1.0-cloudinary",
-    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? "SET" : "MISSING",
-    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? "SET" : "MISSING",
-    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? "SET" : "MISSING"
-  });
+console.log("[DEBUG] Cloudinary status endpoint hit");
+
+res.json({
+version: "v2.1.0-cloudinary",
+CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "MISSING",
+CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? "SET" : "MISSING",
+CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? "SET" : "MISSING"
+});
 });
 
 const PORT = process.env.PORT || 5000;
