@@ -46,6 +46,17 @@ app.get('/', (req, res) => {
     res.send('Nihongo Learning Platform API is running');
 });
 
+// ── Temporary debug endpoint to verify Cloudinary env vars on Railway ────────
+app.get('/api/debug/cloudinary-status', (req, res) => {
+    res.json({
+        CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? '✅ SET' : '❌ MISSING',
+        CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? '✅ SET' : '❌ MISSING',
+        CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? '✅ SET' : '❌ MISSING',
+        NODE_ENV: process.env.NODE_ENV || 'not set',
+        deployTimestamp: new Date().toISOString()
+    });
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/videos', require('./routes/videos')); // GET is public; POST/PUT/DELETE protected per-route
