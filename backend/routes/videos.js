@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const { Readable } = require('stream');
 const { v2: cloudinary } = require('cloudinary');
 const Video = require('../models/Video');
 const Notification = require('../models/Notification');
@@ -10,146 +8,124 @@ const Progress = require('../models/Progress');
 const { adminAuth } = require('../middleware/auth-middleware');
 
 // ─── Cloudinary configuration ────────────────────────────────────────────────
-// Reads from environment variables set on Railway dashboard
-const CLOUD_NAME  = process.env.CLOUDINARY_CLOUD_NAME;
-const CLOUD_KEY   = process.env.CLOUDINARY_API_KEY;
-const CLOUD_SECRET = process.env.CLOUDINARY_API_SECRET;
-
-console.log('[Cloudinary] Config check →',
-    'cloud_name:', CLOUD_NAME ? `"${CLOUD_NAME}"` : '⚠️ MISSING',
-    '| api_key:', CLOUD_KEY ? `"${CLOUD_KEY.substring(0,4)}…"` : '⚠️ MISSING',
-    '| api_secret:', CLOUD_SECRET ? '(set)' : '⚠️ MISSING'
-);
-
 cloudinary.config({
-    cloud_name: CLOUD_NAME,
-    api_key:    CLOUD_KEY,
-    api_secret: CLOUD_SECRET,
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
     secure:     true
 });
 
-// Allowed video MIME types
-const ALLOWED_VIDEO_TYPES = [
-    'video/mp4',
-    'video/webm',
-    'video/quicktime',
-    'video/x-msvideo',
-    'video/x-matroska'
-];
+console.log('[videos.js] Cloudinary config loaded:',
+    'cloud_name=', process.env.CLOUDINARY_CLOUD_NAME || 'MISSING',
+    'api_key=', process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
+    'api_secret=', process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING'
+);
 
-// ─── Multer: memory storage (buffer sent directly to Cloudinary) ─────────────
-const storage = multer.memoryStorage();
-
-const fileFilter = (req, file, cb) => {
-    if (ALLOWED_VIDEO_TYPES.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error('Invalid file type. Only video files (MP4, WebM, MOV, AVI, MKV) are allowed.'), false);
-    }
-};
-
+// ─── Multer: memory storage ONLY ─────────────────────────────────────────────
 const upload = multer({
-    storage: storage,
-    limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
-    fileFilter: fileFilter
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only video files are allowed.'), false);
+        }
+    }
 });
 
-// ─── Helper: upload buffer to Cloudinary ─────────────────────────────────────
-function uploadToCloudinary(buffer, filename, mimetype) {
+// ─── Cloudinary stream upload using stream.end(buffer) ───────────────────────
+const streamUpload = (buffer) => {
     return new Promise((resolve, reject) => {
-        console.log('[Cloudinary] Starting upload_stream for:', filename, '| size:', buffer.length, 'bytes | mime:', mimetype);
-        const uploadStream = cloudinary.uploader.upload_stream(
+        console.log('[streamUpload] Starting upload_stream, buffer size:', buffer.length, 'bytes');
+        const stream = cloudinary.uploader.upload_stream(
             {
                 resource_type: 'video',
-                folder: 'nihongo_videos',
-                public_id: Date.now() + '_' + path.parse(filename).name.replace(/[^a-zA-Z0-9_-]/g, '_'),
-                overwrite: false,
-                unique_filename: true
+                folder: 'nihongo_videos'
             },
             (error, result) => {
-                if (error) {
-                    console.error('[Cloudinary] upload_stream ERROR:', error);
-                    return reject(error);
+                if (result) {
+                    console.log('[streamUpload] SUCCESS:', JSON.stringify({
+                        secure_url: result.secure_url,
+                        public_id: result.public_id,
+                        format: result.format,
+                        bytes: result.bytes
+                    }));
+                    resolve(result);
+                } else {
+                    console.error('[streamUpload] FAILED:', error);
+                    reject(error);
                 }
-                console.log('[Cloudinary] upload_stream SUCCESS → secure_url:', result.secure_url, '| public_id:', result.public_id);
-                resolve(result);
             }
         );
-        // Pipe the buffer into the upload stream
-        const readableStream = new Readable();
-        readableStream.push(buffer);
-        readableStream.push(null);
-        readableStream.pipe(uploadStream);
+        stream.end(buffer);
     });
-}
+};
 
-// ════════════════════════════════════════════════
-// IMPORTANT: Static path routes MUST come before /:id
-// Otherwise Express matches "reorder" as an :id param
-// ════════════════════════════════════════════════
-
-// Helper to harden Cloudinary URLs for strict browser mp4 playback
-const getTransformedCloudinaryUrl = (url) => {
+// Helper: harden Cloudinary URLs for browser mp4 playback
+const getTransformedUrl = (url) => {
     if (url && url.includes('res.cloudinary.com') && url.includes('/upload/') && !url.includes('/upload/f_mp4,vc_auto/')) {
         return url.replace('/upload/', '/upload/f_mp4,vc_auto/');
     }
     return url;
 };
 
-// @route   POST /api/videos/upload
-// @desc    Upload a new educational video (Admin only) → stores on Cloudinary
+// ════════════════════════════════════════════════════════════════════════════════
+// IMPORTANT: Static path routes MUST come before /:id wildcard
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ─── POST /api/videos/upload ─────────────────────────────────────────────────
 router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
     try {
+        // 1. Validate file exists
         if (!req.file) {
             return res.status(400).json({ msg: 'No video file provided' });
         }
 
-        console.log('[Upload] Received file:', req.file.originalname, '| size:', req.file.size, '| mime:', req.file.mimetype);
+        console.log('[Upload] File received:', req.file.originalname, '| size:', req.file.size, '| mime:', req.file.mimetype);
+        console.log('[Upload] Buffer exists:', !!req.file.buffer, '| Buffer length:', req.file.buffer ? req.file.buffer.length : 0);
 
+        // 2. Validate form fields
         const { title, description, jlptLevel, section, uploadedBy, order } = req.body;
 
         if (!title || !jlptLevel || !section) {
             return res.status(400).json({ msg: 'Please enter all required fields' });
         }
 
-        const validLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
-        if (!validLevels.includes(jlptLevel)) {
+        if (!['N5', 'N4', 'N3', 'N2', 'N1'].includes(jlptLevel)) {
             return res.status(400).json({ msg: 'Invalid JLPT level' });
         }
 
-        const validSections = ['Kanji', 'Vocabulary'];
-        if (!validSections.includes(section)) {
+        if (!['Kanji', 'Vocabulary'].includes(section)) {
             return res.status(400).json({ msg: 'Invalid section' });
         }
 
-        // ── Validate Cloudinary config before attempting upload ─────────────
-        if (!CLOUD_NAME || !CLOUD_KEY || !CLOUD_SECRET) {
-            console.error('[Upload] FATAL: Cloudinary environment variables not configured!');
-            return res.status(500).json({ msg: 'Server misconfiguration: Cloudinary credentials missing. Contact admin.' });
+        // 3. Validate Cloudinary config
+        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+            console.error('[Upload] FATAL: Cloudinary env vars missing!');
+            return res.status(500).json({ msg: 'Server misconfiguration: Cloudinary credentials missing.' });
         }
 
-        // ── Upload file buffer to Cloudinary ───────────────────────────────
-        let cloudinaryResult;
+        // 4. Upload to Cloudinary using stream.end(buffer)
+        console.log('[Upload] Calling streamUpload...');
+        let result;
         try {
-            cloudinaryResult = await uploadToCloudinary(
-                req.file.buffer,
-                req.file.originalname,
-                req.file.mimetype
-            );
-        } catch (cloudErr) {
-            console.error('[Upload] Cloudinary upload FAILED:', cloudErr);
-            return res.status(500).json({ msg: 'Video upload to cloud storage failed: ' + cloudErr.message });
+            result = await streamUpload(req.file.buffer);
+        } catch (uploadErr) {
+            console.error('[Upload] Cloudinary upload error:', uploadErr);
+            return res.status(500).json({ msg: 'Cloudinary upload failed: ' + (uploadErr.message || uploadErr) });
         }
 
-        // ── Validate Cloudinary response ───────────────────────────────────
-        if (!cloudinaryResult || !cloudinaryResult.secure_url || !cloudinaryResult.public_id) {
-            console.error('[Upload] Cloudinary returned incomplete result:', JSON.stringify(cloudinaryResult));
-            return res.status(500).json({ msg: 'Cloud storage returned an invalid response. Please retry.' });
+        // 5. Validate Cloudinary response
+        if (!result || !result.secure_url || !result.public_id) {
+            console.error('[Upload] Cloudinary returned incomplete result:', JSON.stringify(result));
+            return res.status(500).json({ msg: 'Cloudinary returned invalid response. Please retry.' });
         }
 
-        const videoUrl = getTransformedCloudinaryUrl(cloudinaryResult.secure_url);
-        console.log('[Upload] Transformed URL:', videoUrl);
+        console.log('[Upload] Cloudinary upload success:', result.secure_url);
 
+        // 6. Prepare MongoDB document
         let videoOrder = parseInt(order) || 0;
         if (!videoOrder) {
             const count = await Video.countDocuments({ jlptLevel, section });
@@ -160,25 +136,27 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
             .replace(/[^a-zA-Z0-9._-]/g, '_')
             .substring(0, 100);
 
-        const videoPayload = {
+        const videoDoc = {
             title,
             description: description || '',
             filename: Date.now() + '_' + sanitizedFilename,
-            url: videoUrl,
-            cloudinaryPublicId: cloudinaryResult.public_id,
+            url: getTransformedUrl(result.secure_url),
+            cloudinaryPublicId: result.public_id,
             jlptLevel,
             section,
             order: videoOrder,
             uploadedBy: uploadedBy || 'admin'
         };
 
-        console.log('[Upload] Saving to MongoDB:', JSON.stringify(videoPayload, null, 2));
+        console.log('[Upload] MongoDB payload:', JSON.stringify(videoDoc));
 
-        const newVideo = new Video(videoPayload);
+        // 7. Save to MongoDB
+        const newVideo = new Video(videoDoc);
         const savedVideo = await newVideo.save();
 
-        console.log('[Upload] MongoDB saved! _id:', savedVideo._id, '| url:', savedVideo.url, '| publicId:', savedVideo.cloudinaryPublicId);
+        console.log('[Upload] MongoDB SAVED! id:', savedVideo._id, 'url:', savedVideo.url, 'cloudinaryPublicId:', savedVideo.cloudinaryPublicId);
 
+        // 8. Create notification
         const newNotification = new Notification({
             message: `New ${jlptLevel} ${section} video available: ${title}`,
             type: 'video_upload',
@@ -189,13 +167,12 @@ router.post('/upload', adminAuth, upload.single('video'), async (req, res) => {
 
         res.json(savedVideo);
     } catch (err) {
-        console.error('[Upload] Unhandled error:', err);
+        console.error('[Upload] UNHANDLED ERROR:', err);
         res.status(500).json({ msg: 'Server error: ' + err.message });
     }
 });
 
-// @route   GET /api/videos
-// @desc    Get all videos (optionally filtered) — PUBLIC for students
+// ─── GET /api/videos ─────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
     try {
         const { level, section } = req.query;
@@ -206,13 +183,13 @@ router.get('/', async (req, res) => {
         const videos = await Video.find(query)
             .sort({ jlptLevel: 1, section: 1, order: 1 })
             .lean();
-            
-        // Apply transformation for backward compatibility on already uploaded videos
+
+        // Apply f_mp4 transformation for backward compatibility
         const transformedVideos = videos.map(v => ({
             ...v,
-            url: getTransformedCloudinaryUrl(v.url)
+            url: getTransformedUrl(v.url)
         }));
-            
+
         res.json(transformedVideos);
     } catch (err) {
         console.error('Error fetching videos:', err);
@@ -220,21 +197,15 @@ router.get('/', async (req, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════
-// Static routes BEFORE the /:id wildcard route
-// ═══════════════════════════════════════════════════
-
-// @route   PUT /api/videos/reorder/batch
-// @desc    Atomic batch reorder (Admin only)
+// ─── PUT /api/videos/reorder/batch ───────────────────────────────────────────
 router.put('/reorder/batch', adminAuth, async (req, res) => {
     try {
-        const { updates } = req.body; // Array of { id, order }
+        const { updates } = req.body;
 
         if (!Array.isArray(updates) || updates.length === 0) {
             return res.status(400).json({ msg: 'Invalid reorder data' });
         }
 
-        // Atomic bulkWrite — all updates in one DB round-trip
         const bulkOps = updates.map(item => ({
             updateOne: {
                 filter: { _id: item.id },
@@ -244,7 +215,6 @@ router.put('/reorder/batch', adminAuth, async (req, res) => {
 
         await Video.bulkWrite(bulkOps, { ordered: false });
 
-        // Return updated videos for the affected section
         const firstVideo = await Video.findById(updates[0].id).lean();
         let updatedVideos = [];
         if (firstVideo) {
@@ -261,8 +231,7 @@ router.put('/reorder/batch', adminAuth, async (req, res) => {
     }
 });
 
-// @route   PUT /api/videos/normalize/:level/:section
-// @desc    Normalize order values for a section (Admin only)
+// ─── PUT /api/videos/normalize/:level/:section ──────────────────────────────
 router.put('/normalize/:level/:section', adminAuth, async (req, res) => {
     try {
         const { level, section } = req.params;
@@ -287,12 +256,11 @@ router.put('/normalize/:level/:section', adminAuth, async (req, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 // Wildcard /:id routes LAST
-// ═══════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
 
-// @route   PUT /api/videos/:id
-// @desc    Update video details (Admin only)
+// ─── PUT /api/videos/:id ─────────────────────────────────────────────────────
 router.put('/:id', adminAuth, async (req, res) => {
     try {
         const video = await Video.findById(req.params.id);
@@ -304,18 +272,14 @@ router.put('/:id', adminAuth, async (req, res) => {
         const oldLevel = video.jlptLevel;
         const oldSection = video.section;
 
-        // Validate JLPT level if provided
         if (jlptLevel) {
-            const validLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
-            if (!validLevels.includes(jlptLevel)) {
+            if (!['N5', 'N4', 'N3', 'N2', 'N1'].includes(jlptLevel)) {
                 return res.status(400).json({ msg: 'Invalid JLPT level' });
             }
         }
 
-        // Validate section if provided
         if (section) {
-            const validSections = ['Kanji', 'Vocabulary'];
-            if (!validSections.includes(section)) {
+            if (!['Kanji', 'Vocabulary'].includes(section)) {
                 return res.status(400).json({ msg: 'Invalid section' });
             }
         }
@@ -326,7 +290,6 @@ router.put('/:id', adminAuth, async (req, res) => {
         if (section) video.section = section;
         if (order !== undefined) video.order = parseInt(order);
 
-        // If section/level changed, auto-assign order at end of new section
         const sectionChanged = (jlptLevel && jlptLevel !== oldLevel) || (section && section !== oldSection);
         if (sectionChanged && order === undefined) {
             const count = await Video.countDocuments({
@@ -339,7 +302,6 @@ router.put('/:id', adminAuth, async (req, res) => {
 
         const updatedVideo = await video.save();
 
-        // If section changed, normalize old section's order
         if (sectionChanged) {
             const oldVideos = await Video.find({ jlptLevel: oldLevel, section: oldSection }).sort({ order: 1 });
             const bulkOps = oldVideos.map((v, i) => ({
@@ -355,8 +317,7 @@ router.put('/:id', adminAuth, async (req, res) => {
     }
 });
 
-// @route   DELETE /api/videos/:id
-// @desc    Delete a video and cascade-clean related records (Admin only)
+// ─── DELETE /api/videos/:id ──────────────────────────────────────────────────
 router.delete('/:id', adminAuth, async (req, res) => {
     try {
         const video = await Video.findById(req.params.id);
@@ -364,27 +325,24 @@ router.delete('/:id', adminAuth, async (req, res) => {
             return res.status(404).json({ msg: 'Video not found' });
         }
 
-        // ── Delete from Cloudinary (if uploaded via Cloudinary) ────────────
+        // Delete from Cloudinary
         if (video.cloudinaryPublicId) {
             try {
                 await cloudinary.uploader.destroy(video.cloudinaryPublicId, { resource_type: 'video' });
-                console.log(`Cloudinary: Deleted asset ${video.cloudinaryPublicId}`);
+                console.log('[Delete] Cloudinary asset deleted:', video.cloudinaryPublicId);
             } catch (cloudErr) {
-                // Log but don't block the delete
-                console.error('Cloudinary deletion error (non-fatal):', cloudErr.message);
+                console.error('[Delete] Cloudinary deletion error (non-fatal):', cloudErr.message);
             }
         }
 
-
-
-        // Cascade: Remove all progress records referencing this video
+        // Cascade delete progress
         const deletedProgress = await Progress.deleteMany({ videoId: req.params.id });
-        console.log(`Cascade: Removed ${deletedProgress.deletedCount} progress records for video ${req.params.id}`);
+        console.log('[Delete] Cascade removed', deletedProgress.deletedCount, 'progress records');
 
         await Video.findByIdAndDelete(req.params.id);
         await Notification.deleteMany({ videoId: req.params.id });
 
-        // Normalize remaining order with bulkWrite (atomic, fast)
+        // Normalize remaining order
         const remaining = await Video.find({
             jlptLevel: video.jlptLevel,
             section: video.section
