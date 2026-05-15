@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // Use live production backend URL
-export const API_URL = 'https://nihongo-backend-production-e087.up.railway.app/api';
+export const API_URL = 'https://nihongo-backend-production-83ec.up.railway.app/api';
 
 export const AuthContext = createContext<any>(null);
 
