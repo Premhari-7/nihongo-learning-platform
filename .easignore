@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+.expo
+dist
+web-build
+android
+ios
+.git
+*.log
+.vscode
+build_log.txt
+check_sizes.ps1
+check_sizes.py
+screenshots
+backend/node_modules
