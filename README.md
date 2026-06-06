@@ -18,7 +18,7 @@
 
 ## <img src="https://api.iconify.design/lucide/info.svg?color=%23c0392b" width="24" align="center" /> Overview
 
-The **Nihongo Learning Platform** combines a beautifully crafted mobile-first interface with a powerful administrative backend. It features an integrated JLPT curriculum, dynamic quizzes, real-time AI assistance, and an administrative dashboard for full control over content distribution. The project is fully configured for cloud deployment on Railway and APK distribution via Expo Application Services (EAS).
+The **Nihongo Learning Platform** combines a beautifully crafted mobile-first interface with a powerful administrative backend. It features an integrated JLPT curriculum, dynamic quizzes, real-time AI assistance, and an administrative dashboard for full control over content distribution. The project is fully configured for cloud deployment on Render and APK distribution via Expo Application Services (EAS).
 
 ---
 
@@ -50,7 +50,7 @@ The **Nihongo Learning Platform** combines a beautifully crafted mobile-first in
 - **Cloudinary**: Robust cloud media storage pipeline for persistent video streaming.
 
 ### Cloud & Deployment <img src="https://api.iconify.design/lucide/cloud.svg?color=%23c0392b" width="20" align="center" />
-- **Railway**: Continuous integration and deployment pipeline for the Express backend.
+- **Render**: Continuous integration and deployment pipeline for the Express backend.
 - **EAS (Expo Application Services)**: Cloud-native APK build generation.
 
 ---
@@ -124,9 +124,9 @@ The system follows a standard decoupled Client-Server architecture:
 
 ## <img src="https://api.iconify.design/lucide/cloud-upload.svg?color=%23c0392b" width="24" align="center" /> Cloud Deployment
 
-### Railway Deployment (Backend)
-The backend is fully configured for immediate deployment via Railway. 
-Simply connect this repository to a new Railway project and specify `/backend` as the Root Directory. Railway will automatically install dependencies and launch the server using the configuration specified in `backend/package.json`.
+### Render Deployment (Backend)
+The backend is fully configured for immediate deployment via Render. 
+Simply connect this repository to a new Render Web Service and specify `backend` as the Root Directory. Render will automatically install dependencies and launch the server using the configuration specified in `backend/render.yaml` or `backend/package.json`.
 
 ### EAS APK Build (Frontend)
 To generate a production-ready Android APK:
