@@ -357,38 +357,22 @@ router.get('/preview/:certId', async (req, res) => {
         @media screen and (max-width: 1180px) {
             body {
                 padding: 0;
-                min-height: 100vh;
+                margin: 0;
+                height: 100vh;
                 overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #1a1008;
             }
             .cert-container {
                 width: 1122px;
                 height: 793px;
-                min-height: auto;
-            }
-        }
-
-        /* Portrait: scale to fit BOTH width AND height — full cert visible */
-        @media screen and (max-width: 1180px) and (orientation: portrait) {
-            body {
-                align-items: flex-start;
-                justify-content: flex-start;
-                background: #1a1008;
-            }
-            .cert-container {
+                min-width: 1122px;
+                min-height: 793px;
+                flex-shrink: 0;
                 transform: scale(min(calc(100vw / 1122), calc(100vh / 793)));
-                transform-origin: top left;
-            }
-        }
-
-        /* Landscape: scale to viewport width (preserves current perfect layout) */
-        @media screen and (max-width: 1180px) and (orientation: landscape) {
-            body {
-                align-items: flex-start;
-                justify-content: flex-start;
-            }
-            .cert-container {
-                transform: scale(calc(100vw / 1122));
-                transform-origin: top left;
+                transform-origin: center;
             }
         }
     </style>
