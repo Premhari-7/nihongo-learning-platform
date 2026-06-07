@@ -43,7 +43,7 @@ router.get('/preview/:certId', async (req, res) => {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=1122">
     <title>Certificate — ${cert.userName}</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&family=Cinzel:wght@400;600;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
@@ -51,34 +51,24 @@ router.get('/preview/:certId', async (req, res) => {
 
         body {
             background: #1a1008;
+            margin: 0;
+            padding: 28px;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
-            padding: 28px;
-            margin: 0;
-            overflow: hidden;
         }
 
         /* ── Outer frame ── */
         .cert-container {
-            width: 1122px !important;
-            height: 793px !important;
-            min-width: 1122px !important;
-            min-height: 793px !important;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            flex-shrink: 0 !important;
-            transform-origin: center center;
+            width: 1122px;
+            height: 793px;
+            flex-shrink: 0;
         }
         .cert-frame {
-            width: 1122px !important;
-            height: 793px !important;
-            min-width: 1122px !important;
-            min-height: 793px !important;
-            flex-shrink: 0 !important;
+            width: 1122px;
+            height: 793px;
+            flex-shrink: 0;
             background: #f5f0e4;
             border: 16px solid #0d0a04;
             position: relative;
@@ -160,7 +150,7 @@ router.get('/preview/:certId', async (req, res) => {
         /* ── Main content area ── */
         .main-content {
             position: absolute;
-            top: 48%; /* Slightly above center for optical balance */
+            top: 48%;
             left: 60px; right: 60px;
             transform: translateY(-50%);
             display: flex;
@@ -169,7 +159,7 @@ router.get('/preview/:certId', async (req, res) => {
             justify-content: flex-start;
             text-align: center;
             z-index: 4;
-            gap: 10px; /* Tight uniform spacing */
+            gap: 10px;
         }
 
         /* ── Typography ── */
@@ -231,12 +221,12 @@ router.get('/preview/:certId', async (req, res) => {
         .student-name {
             font-family: 'Playfair Display', serif;
             font-style: italic;
-            font-size: 46px; /* Increased size */
-            font-weight: 900; /* Bolder */
+            font-size: 46px;
+            font-weight: 900;
             color: #8e001c;
             margin: 2px 0;
             padding-bottom: 2px;
-            border-bottom: 2px solid #b8942a; /* Thicker border */
+            border-bottom: 2px solid #b8942a;
             display: inline-block;
             letter-spacing: 1px;
             line-height: 1.1;
@@ -249,7 +239,7 @@ router.get('/preview/:certId', async (req, res) => {
             color: #2e2010;
             font-weight: 400;
         }
-        .hl { font-weight: 900; color: #8e001c; } /* Bolder */
+        .hl { font-weight: 900; color: #8e001c; }
 
         /* ── Footer signatures ── */
         .footer-row {
@@ -257,7 +247,7 @@ router.get('/preview/:certId', async (req, res) => {
             justify-content: space-between;
             align-items: flex-end;
             width: 100%;
-            margin-top: 15px; /* Grouped tightly with text */
+            margin-top: 15px;
             padding: 0 10px;
             gap: 15px;
             position: relative;
@@ -271,7 +261,7 @@ router.get('/preview/:certId', async (req, res) => {
         .sig-name {
             font-family: 'Playfair Display', serif;
             font-style: italic;
-            font-weight: 700; /* Bold */
+            font-weight: 700;
             font-size: 20px;
             color: #1a1008;
             line-height: 1;
@@ -289,7 +279,7 @@ router.get('/preview/:certId', async (req, res) => {
             font-size: 6.5px;
             letter-spacing: 1.2px;
             text-transform: uppercase;
-            font-weight: 900; /* Bolder */
+            font-weight: 900;
             color: #5a4a2a;
         }
 
@@ -304,7 +294,7 @@ router.get('/preview/:certId', async (req, res) => {
             justify-content: center;
             color: #8e001c;
             font-size: 6px;
-            font-weight: 900; /* Bolder */
+            font-weight: 900;
             letter-spacing: 0.5px;
             text-align: center;
             transform: rotate(-7deg);
@@ -322,10 +312,10 @@ router.get('/preview/:certId', async (req, res) => {
             border: 0.5px solid #8e001c;
         }
 
-        /* ── Metadata bar - Pinned to absolute bottom border ── */
+        /* ── Metadata bar ── */
         .meta-bar {
             position: absolute;
-            bottom: 18px; /* Closer to edge */
+            bottom: 18px;
             left: 100px; right: 100px;
             border-top: 0.5px solid rgba(184,148,42,0.3);
             padding-top: 5px;
@@ -337,7 +327,7 @@ router.get('/preview/:certId', async (req, res) => {
             letter-spacing: 1.2px;
             z-index: 10;
         }
-        .meta-bar .val { color: #8e001c; font-weight: 900; } /* Bolder */
+        .meta-bar .val { color: #8e001c; font-weight: 900; }
 
         /* Watermark */
         .watermark {
@@ -347,7 +337,7 @@ router.get('/preview/:certId', async (req, res) => {
             transform: translate(-50%, -50%);
             font-family: 'Noto Serif JP', serif;
             font-size: 350px;
-            color: rgba(184, 148, 42, 0.05); /* Faint gold */
+            color: rgba(184, 148, 42, 0.05);
             font-weight: 900;
             z-index: 0;
             pointer-events: none;
@@ -360,21 +350,6 @@ router.get('/preview/:certId', async (req, res) => {
                 box-shadow: none;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-            }
-        }
-
-        /* Responsive scaling for all screens smaller than the cert */
-        @media screen and (max-width: 1180px) and (orientation: landscape) {
-            .cert-container {
-                transform: scale(min(calc(100vw / 1122), calc(100vh / 793)));
-            }
-        }
-
-        /* Portrait mode: Rotate 90 degrees to fill the screen nicely */
-        @media screen and (max-width: 1180px) and (orientation: portrait) {
-            .cert-container {
-                /* Swap dimensions for the scale calculation since it's rotated */
-                transform: scale(min(calc(100vw / 793), calc(100vh / 1122))) rotate(90deg);
             }
         }
     </style>
