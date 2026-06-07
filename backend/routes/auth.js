@@ -93,4 +93,18 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Update user level
+router.post('/update-level', async (req, res) => {
+    try {
+        const { userId, level } = req.body;
+        if (!userId || !level) return res.status(400).json({ msg: 'Missing userId or level' });
+        
+        await User.findByIdAndUpdate(userId, { level, jlptLevel: level });
+        res.json({ msg: 'Level updated' });
+    } catch (err) {
+        console.error('Error updating level:', err.message);
+        res.status(500).send('Server error');
+    }
+});
+
 module.exports = router;

@@ -67,11 +67,22 @@ export default function AdminDashboard() {
   const fetchChartData = async () => {
     try {
       const res = await axios.get(`${API_URL}/admin/chart-data`);
-      setChartData(res.data);
+      
+      // Ensure all 5 levels are always displayed, even if the backend is outdated
+      const defaultLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+      const mergedData = defaultLevels.map(level => {
+        const found = res.data.find((d: any) => d.level === level);
+        return { level, count: found ? found.count : 0 };
+      });
+      
+      setChartData(mergedData);
     } catch (err) {
       console.error('Failed to load chart data:', err);
-      // Fallback: display empty bars
-      setChartData([{ level: 'N5', count: 0 }, { level: 'N4', count: 0 }]);
+      // Fallback: display all empty bars
+      setChartData([
+        { level: 'N5', count: 0 }, { level: 'N4', count: 0 },
+        { level: 'N3', count: 0 }, { level: 'N2', count: 0 }, { level: 'N1', count: 0 }
+      ]);
     }
   };
 
@@ -180,10 +191,11 @@ export default function AdminDashboard() {
             <ActivityIndicator color={colors.primary} />
           ) : chartData.map((item, i) => {
             const barHeight = maxCount > 0 ? Math.max(((item.count / maxCount) * 180), 8) : 8;
+            const barColors = [colors.primary, colors.gold, '#4CAF50', '#2196F3', '#9C27B0'];
             return (
               <View key={i} style={s.barWrapper}>
                 <Text style={[s.barValueLabel, { color: colors.textSecondary }]}>{item.count}</Text>
-                <View style={[s.barFill, { height: barHeight, backgroundColor: i === 0 ? colors.primary : colors.gold }]} />
+                <View style={[s.barFill, { height: barHeight, backgroundColor: barColors[i] || colors.primary }]} />
                 <Text style={[s.barLabel, { color: colors.textSecondary }]}>{item.level}</Text>
               </View>
             );

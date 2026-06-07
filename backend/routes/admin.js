@@ -8,7 +8,7 @@ const QuizResult = require('../models/QuizResult');
 // Get basic admin stats
 router.get('/stats', async (req, res) => {
     try {
-        const totalUsersCount = await User.countDocuments({ role: 'user' });
+        const totalUsersCount = await User.countDocuments({ role: { $in: ['user', 'student'] } });
         const activeStudentsCount = totalUsersCount; 
         
         // Count actual certificates issued
@@ -28,11 +28,14 @@ router.get('/stats', async (req, res) => {
 // Get real chart data: count students enrolled per JLPT level
 router.get('/chart-data', async (req, res) => {
     try {
-        const levels = ['N5', 'N4'];
+        const levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
         const data = await Promise.all(levels.map(async (level) => {
-            // courseId format is 'N5-Kanji' or 'N5-Vocabulary'
-            const userIds = await Progress.distinct('userId', { courseId: new RegExp(`^${level}-`, 'i') });
-            return { level, count: userIds.length };
+            // Count users who have this level as their current jlptLevel or level
+            const count = await User.countDocuments({
+                role: { $in: ['user', 'student'] },
+                $or: [{ jlptLevel: level }, { level: level }]
+            });
+            return { level, count };
         }));
         res.json(data);
     } catch (err) {
@@ -44,7 +47,7 @@ router.get('/chart-data', async (req, res) => {
 // Get all students
 router.get('/students', async (req, res) => {
     try {
-        const students = await User.find({ role: 'user' }).select('-password').sort({ createdAt: -1 });
+        const students = await User.find({ role: { $in: ['user', 'student'] } }).select('-password').sort({ createdAt: -1 });
         res.json(students);
     } catch (err) {
         console.error(err);
@@ -59,7 +62,7 @@ router.delete('/student/:id', async (req, res) => {
         
         // 1. Check if user exists and is a student
         const student = await User.findById(studentId);
-        if (!student || student.role !== 'user') {
+        if (!student || !['user', 'student'].includes(student.role)) {
             return res.status(404).json({ msg: 'Student not found' });
         }
 

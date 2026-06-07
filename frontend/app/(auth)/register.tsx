@@ -24,6 +24,31 @@ export default function RegisterScreen() {
     const styles = makeStyles(colors, isDark);
 
     const handleRegister = async () => {
+        const nameRegex = /^[A-Za-z\s]+$/;
+        if (!nameRegex.test(name)) {
+            setPopupConfig({ type: 'error', title: 'Invalid Name', message: 'only character is allowed for name' });
+            setPopupVisible(true);
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setPopupConfig({ type: 'error', title: 'Invalid Email', message: 'enter valid mail' });
+            setPopupVisible(true);
+            return;
+        }
+
+        const passwordRegex = /^(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$/;
+        if (!passwordRegex.test(password)) {
+            setPopupConfig({ 
+                type: 'error', 
+                title: 'Weak Password', 
+                message: 'Password must be at least 8 characters long and include a number and a special symbol.' 
+            });
+            setPopupVisible(true);
+            return;
+        }
+
         setLoading(true);
         const res = await register(name, email, password, role, adminCode);
         setLoading(false);
@@ -36,7 +61,13 @@ export default function RegisterScreen() {
                 else router.replace('/(tabs)');
             }, 1500);
         } else {
-            setPopupConfig({ type: 'error', title: 'Registration Failed', message: res.msg });
+            let errorMsg = res.msg;
+            if (errorMsg?.toLowerCase().includes('user already exists')) {
+                errorMsg = 'email already exist';
+            } else if (errorMsg?.toLowerCase().includes('invalid admin code')) {
+                errorMsg = 'invalid admin code';
+            }
+            setPopupConfig({ type: 'error', title: 'Registration Failed', message: errorMsg });
             setPopupVisible(true);
         }
     };

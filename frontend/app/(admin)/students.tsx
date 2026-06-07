@@ -86,10 +86,10 @@ export default function ManageStudents() {
   const progressPct = studentDetail?.summary?.percentage ?? 0;
   const certsEarned = studentDetail?.certificates?.length ?? 0;
 
-  // Gather unique levels from certificates
-  const studiedLevels = [...new Set(
-    (studentDetail?.certificates ?? []).map((c: any) => c.jlptLevel).filter(Boolean)
-  )];
+  // Gather unique levels from certificates and progress
+  const certLevels = (studentDetail?.certificates ?? []).map((c: any) => c.jlptLevel).filter(Boolean);
+  const progLevels = studentDetail?.summary?.studiedLevels ?? [];
+  const studiedLevels = [...new Set([...certLevels, ...progLevels])];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

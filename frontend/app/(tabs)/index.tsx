@@ -105,9 +105,9 @@ export default function StudentDashboard() {
   const jlptLevels = [
     { name: 'N5', unlocked: true, modules: 12 },
     { name: 'N4', unlocked: true, modules: 15 },
-    { name: 'N3', unlocked: false, modules: 20 },
-    { name: 'N2', unlocked: false, modules: 25 },
-    { name: 'N1', unlocked: false, modules: 30 },
+    { name: 'N3', unlocked: true, modules: 20 },
+    { name: 'N2', unlocked: true, modules: 25 },
+    { name: 'N1', unlocked: true, modules: 30 },
   ];
 
   return (

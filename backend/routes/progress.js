@@ -10,14 +10,19 @@ router.get('/summary/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         const totalVideos = await Video.countDocuments();
-        const completedVideos = await Progress.countDocuments({ userId, isCompleted: true });
+        const completedVideosRaw = await Progress.countDocuments({ userId, isCompleted: true });
+        const completedVideos = Math.min(completedVideosRaw, totalVideos);
         
-        let percentage = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+        const distinctCourses = await Progress.distinct('courseId', { userId });
+        const studiedLevels = [...new Set(distinctCourses.map(c => c.split('-')[0]).filter(Boolean))];
+
+        let percentage = totalVideos > 0 ? Math.min(100, Math.round((completedVideos / totalVideos) * 100)) : 0;
         
         res.json({ 
             percentage, 
             completedVideos, 
-            totalVideos 
+            totalVideos,
+            studiedLevels
         });
     } catch (err) {
         console.error('Error fetching progress summary:', err);
