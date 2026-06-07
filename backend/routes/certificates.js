@@ -43,20 +43,29 @@ router.get('/preview/:certId', async (req, res) => {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1122">
+    <meta name="viewport" content="width=1178, shrink-to-fit=no">
     <title>Certificate — ${cert.userName}</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&family=Cinzel:wght@400;600;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        html {
+            width: 1178px;
+            min-width: 1178px;
+            overflow-x: auto;
+            overflow-y: auto;
+        }
+
         body {
             background: #1a1008;
             margin: 0;
             padding: 28px;
+            width: 1178px;
+            min-width: 1178px;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            min-height: 100vh;
         }
 
         /* ── Outer frame ── */
