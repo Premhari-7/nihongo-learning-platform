@@ -43,7 +43,7 @@ router.get('/preview/:certId', async (req, res) => {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Certificate — ${cert.userName}</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&family=Cinzel:wght@400;600;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
@@ -56,19 +56,29 @@ router.get('/preview/:certId', async (req, res) => {
             align-items: center;
             min-height: 100vh;
             padding: 28px;
+            margin: 0;
+            overflow: hidden;
         }
 
         /* ── Outer frame ── */
         .cert-container {
-            width: 100%;
+            width: 1122px !important;
+            height: 793px !important;
+            min-width: 1122px !important;
+            min-height: 793px !important;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            flex-shrink: 0 !important;
+            transform-origin: center center;
         }
         .cert-frame {
-            width: 1122px;
-            height: 793px;
+            width: 1122px !important;
+            height: 793px !important;
+            min-width: 1122px !important;
+            min-height: 793px !important;
+            flex-shrink: 0 !important;
             background: #f5f0e4;
             border: 16px solid #0d0a04;
             position: relative;
@@ -345,7 +355,7 @@ router.get('/preview/:certId', async (req, res) => {
         }
 
         @media print {
-            body { background: none; padding: 0; }
+            body { background: none; padding: 0; margin: 0; }
             .cert-frame {
                 box-shadow: none;
                 -webkit-print-color-adjust: exact;
@@ -355,24 +365,8 @@ router.get('/preview/:certId', async (req, res) => {
 
         /* Responsive scaling for all screens smaller than the cert */
         @media screen and (max-width: 1180px) {
-            body {
-                padding: 0;
-                margin: 0;
-                height: 100vh;
-                overflow: hidden;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: #1a1008;
-            }
             .cert-container {
-                width: 1122px;
-                height: 793px;
-                min-width: 1122px;
-                min-height: 793px;
-                flex-shrink: 0;
                 transform: scale(min(calc(100vw / 1122), calc(100vh / 793)));
-                transform-origin: center;
             }
         }
     </style>
