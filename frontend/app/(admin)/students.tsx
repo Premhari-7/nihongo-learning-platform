@@ -18,6 +18,8 @@ export default function ManageStudents() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [studentDetail, setStudentDetail] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [levelProgress, setLevelProgress] = useState<any>(null);
   const router = useRouter();
   const { colors, isDark } = useTheme();
 
@@ -38,6 +40,8 @@ export default function ManageStudents() {
 
   const handleViewStudent = async (student: any) => {
     setSelectedStudent(student);
+    setSelectedLevel(null);
+    setLevelProgress(null);
     setLoadingDetail(true);
     try {
       const [progRes, certRes] = await Promise.allSettled([
@@ -90,6 +94,42 @@ export default function ManageStudents() {
   const certLevels = (studentDetail?.certificates ?? []).map((c: any) => c.jlptLevel).filter(Boolean);
   const progLevels = studentDetail?.summary?.studiedLevels ?? [];
   const studiedLevels = [...new Set([...certLevels, ...progLevels])];
+
+  const handleLevelClick = async (lvl: string | null) => {
+    setSelectedLevel(lvl);
+    if (!lvl) {
+      setLevelProgress(null);
+      return;
+    }
+    setLoadingDetail(true);
+    try {
+      const res = await axios.get(`${API_URL}/progress/course/${selectedStudent._id}/${lvl}/Kanji`);
+      setLevelProgress(res.data);
+    } catch (err) {
+      console.error('Error fetching level progress:', err);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  let activeCompletedStr = `${completedVideos}/${totalVideos}`;
+  let activeProgressStr = `${progressPct}%`;
+  
+  if (selectedLevel && levelProgress) {
+      if (levelProgress.stage === 'certificate' || levelProgress.stage === 'quiz') {
+          activeCompletedStr = '✓';
+      } else {
+          const comp = levelProgress.completedVideos || 0;
+          const tot = levelProgress.totalCourseVideos || 0;
+          activeCompletedStr = `${comp}/${tot}`;
+      }
+      activeProgressStr = `${levelProgress.percentage}%`;
+  }
+
+  const activeCerts = selectedLevel 
+    ? (studentDetail?.certificates || []).filter((c: any) => c.jlptLevel === selectedLevel) 
+    : (studentDetail?.certificates || []);
+  const activeCertsEarned = activeCerts.length;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -221,19 +261,33 @@ export default function ManageStudents() {
                 <View style={styles.levelsRow}>
                   {studiedLevels.length === 0 ? (
                     <Text style={[styles.noDataText, { color: colors.textSecondary }]}>No courses started yet</Text>
-                  ) : studiedLevels.map((lvl: any, i: number) => (
-                    <View key={i} style={[styles.levelBadge, { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}40` }]}>
-                      <Text style={[styles.levelBadgeText, { color: colors.primary }]}>{lvl}</Text>
-                    </View>
-                  ))}
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        onPress={() => handleLevelClick(null)}
+                        style={[styles.levelBadge, { backgroundColor: selectedLevel === null ? colors.primary : `${colors.primary}15`, borderColor: `${colors.primary}40` }]}
+                      >
+                        <Text style={[styles.levelBadgeText, { color: selectedLevel === null ? '#fff' : colors.primary }]}>Overall</Text>
+                      </TouchableOpacity>
+                      {studiedLevels.map((lvl: any, i: number) => (
+                        <TouchableOpacity 
+                          key={i} 
+                          onPress={() => handleLevelClick(lvl)}
+                          style={[styles.levelBadge, { backgroundColor: selectedLevel === lvl ? colors.primary : `${colors.primary}15`, borderColor: `${colors.primary}40` }]}
+                        >
+                          <Text style={[styles.levelBadgeText, { color: selectedLevel === lvl ? '#fff' : colors.primary }]}>{lvl}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </>
+                  )}
                 </View>
 
                 {/* Stats Row */}
                 <View style={styles.statsRow}>
                   {[
-                    { icon: 'play-circle', label: 'Videos\n完了', value: `${completedVideos}/${totalVideos}`, color: colors.primary },
-                    { icon: 'bar-chart', label: 'Progress\n進歩', value: `${progressPct}%`, color: '#B8860B' },
-                    { icon: 'certificate', label: 'Certs\n証明書', value: certsEarned, color: '#2E7D32' },
+                    { icon: 'play-circle', label: 'Videos\n完了', value: activeCompletedStr, color: colors.primary },
+                    { icon: 'bar-chart', label: 'Progress\n進歩', value: activeProgressStr, color: '#B8860B' },
+                    { icon: 'certificate', label: 'Certs\n証明書', value: activeCertsEarned, color: '#2E7D32' },
                   ].map((stat, i) => (
                     <View key={i} style={[styles.statBox, { backgroundColor: `${colors.primary}08`, borderColor: colors.border }]}>
                       <FontAwesome name={stat.icon as any} size={18} color={stat.color} />
@@ -244,10 +298,10 @@ export default function ManageStudents() {
                 </View>
 
                 {/* Certificates */}
-                {certsEarned > 0 && (
+                {activeCertsEarned > 0 && (
                   <>
                     <Text style={[styles.modalSectionLabel, { color: colors.textSecondary }]}>証明書 — Certificates</Text>
-                    {studentDetail?.certificates.map((cert: any, i: number) => (
+                    {activeCerts.map((cert: any, i: number) => (
                       <View key={i} style={[styles.certRow, { backgroundColor: `${colors.gold || '#B8860B'}10`, borderColor: `${colors.gold || '#B8860B'}30` }]}>
                         <FontAwesome name="certificate" size={16} color="#B8860B" />
                         <View style={{ marginLeft: 12 }}>
