@@ -423,23 +423,24 @@ function makeStyles(colors: any, isDark: boolean) {
       marginBottom: 8,
     },
     barWrapper: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'flex-end',
-      width: 80,
     },
     barValueLabel: {
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: '800',
       marginBottom: 6,
     },
     barFill: {
-      width: 50,
-      borderRadius: 10,
+      width: '60%',
+      maxWidth: 36,
+      borderRadius: 8,
       minHeight: 8,
     },
     barLabel: {
       marginTop: 10,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: '700',
     },
     chartNote: {
