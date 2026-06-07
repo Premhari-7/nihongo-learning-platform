@@ -19,8 +19,8 @@ WORKDIR /app
 # Set to production
 ENV NODE_ENV=production
 
-# Security: Set up non-root user
-RUN chown -R node:node /app
+# Install PM2 globally and set up non-root user
+RUN npm install -g pm2 && chown -R node:node /app
 USER node
 
 # Copy dependencies and application from builder
@@ -30,4 +30,4 @@ COPY --from=builder --chown=node:node /app ./
 
 EXPOSE 5000
 
-CMD ["npm", "start"]
+CMD ["pm2-runtime", "start", "server.js", "-i", "max"]

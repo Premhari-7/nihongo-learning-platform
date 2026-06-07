@@ -75,6 +75,27 @@ app.use('/api/progress', require('./routes/progress'));
 app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/certificates', require('./routes/certificates'));
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER] ${BUILD_VERSION} listening on port ${PORT}`);
 });
+
+// Graceful Shutdown implementation
+const gracefulShutdown = () => {
+    console.log('\n[SERVER] Received shutdown signal, shutting down gracefully...');
+    server.close(() => {
+        console.log('[SERVER] Closed out remaining connections.');
+        mongoose.connection.close(false).then(() => {
+            console.log('[SERVER] MongoDB connection closed.');
+            process.exit(0);
+        });
+    });
+
+    // Force shutdown if it takes longer than 10 seconds
+    setTimeout(() => {
+        console.error('[SERVER] Could not close connections in time, forcefully shutting down');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
