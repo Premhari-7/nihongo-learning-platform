@@ -8,6 +8,9 @@ import axios from 'axios';
 import { FontAwesome } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +60,33 @@ export default function CertificateScreen() {
         }
     };
 
+    const handleDownloadCertificate = async (certId: string, courseName: string) => {
+        try {
+            if (Platform.OS === 'web') {
+                const url = `${API_URL}/certificates/preview/${certId}`;
+                window.open(url, '_blank');
+            } else {
+                const url = `${API_URL}/certificates/preview/${certId}`;
+                const response = await axios.get(url);
+                const htmlContent = response.data;
+                const { uri } = await Print.printToFileAsync({
+                    html: htmlContent,
+                    width: 1122,
+                    height: 793,
+                    base64: false
+                });
+                await Sharing.shareAsync(uri, { 
+                    UTI: '.pdf', 
+                    mimeType: 'application/pdf', 
+                    dialogTitle: `Download ${courseName} Certificate` 
+                });
+            }
+        } catch (err) {
+            console.error('Download failed:', err);
+            Alert.alert("Error", "Could not download the certificate. Please try again.");
+        }
+    };
+
     const renderCertificateItem = ({ item, index }: { item: any, index: number }) => (
         <Animated.View 
             entering={FadeInUp.delay(index * 100).duration(500)}
@@ -78,17 +108,26 @@ export default function CertificateScreen() {
             <View style={styles.divider} />
 
             <View style={styles.certFooter}>
-                <View>
+                <View style={{ flex: 1 }}>
                     <Text style={styles.idLabel}>Certificate ID</Text>
                     <Text style={styles.idValue}>{item.certificateId}</Text>
                 </View>
-                <TouchableOpacity 
-                    style={styles.viewBtn}
-                    onPress={() => handleViewCertificate(item.certificateId, item.courseName)}
-                >
-                    <Text style={styles.viewBtnText}>View Certificate</Text>
-                    <FontAwesome name="eye" size={14} color="#fff" style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity 
+                        style={[styles.viewBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border }]}
+                        onPress={() => handleDownloadCertificate(item.certificateId, item.courseName)}
+                    >
+                        <Text style={[styles.viewBtnText, { color: colors.text }]}>Download</Text>
+                        <FontAwesome name="download" size={14} color={colors.text} style={{ marginLeft: 8 }} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={styles.viewBtn}
+                        onPress={() => handleViewCertificate(item.certificateId, item.courseName)}
+                    >
+                        <Text style={styles.viewBtnText}>View</Text>
+                        <FontAwesome name="eye" size={14} color="#fff" style={{ marginLeft: 8 }} />
+                    </TouchableOpacity>
+                </View>
             </View>
         </Animated.View>
     );
