@@ -364,9 +364,17 @@ router.get('/preview/:certId', async (req, res) => {
         }
 
         /* Responsive scaling for all screens smaller than the cert */
-        @media screen and (max-width: 1180px) {
+        @media screen and (max-width: 1180px) and (orientation: landscape) {
             .cert-container {
                 transform: scale(min(calc(100vw / 1122), calc(100vh / 793)));
+            }
+        }
+
+        /* Portrait mode: Rotate 90 degrees to fill the screen nicely */
+        @media screen and (max-width: 1180px) and (orientation: portrait) {
+            .cert-container {
+                /* Swap dimensions for the scale calculation since it's rotated */
+                transform: scale(min(calc(100vw / 793), calc(100vh / 1122))) rotate(90deg);
             }
         }
     </style>
