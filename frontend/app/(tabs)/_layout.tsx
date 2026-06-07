@@ -60,6 +60,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="book" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="learn"
+        options={{
+          title: 'Learn (学ぶ)',
+          tabBarIcon: ({ color }) => <TabBarIcon name="play-circle" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
