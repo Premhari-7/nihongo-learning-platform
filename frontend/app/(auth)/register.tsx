@@ -31,9 +31,9 @@ export default function RegisterScreen() {
             return;
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const emailRegex = /^[a-zA-Z][a-zA-Z0-9._-]*@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email)) {
-            setPopupConfig({ type: 'error', title: 'Invalid Email', message: 'enter valid mail' });
+            setPopupConfig({ type: 'error', title: 'Invalid Email', message: 'Please enter a valid email address (e.g., name@example.com)' });
             setPopupVisible(true);
             return;
         }
