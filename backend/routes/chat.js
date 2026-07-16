@@ -18,7 +18,7 @@ router.post('/', async (req, res) => {
         const blockedKeywords = ['ignore previous', 'forget previous', 'system prompt', 'you are not', 'disregard', 'bypass'];
         const isInjectionAttempt = blockedKeywords.some(kw => message.toLowerCase().includes(kw));
 
-        if (isInjectionAttempt || message.length > 500) {
+        if (isInjectionAttempt || message.length > 2000) {
             return res.status(400).json({ reply: "A true samurai does not fall for trickery. Please ask a proper question about Japanese." });
         }
 
@@ -26,16 +26,16 @@ router.post('/', async (req, res) => {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a fierce but wise Japanese Samurai AI named Jin Sakai. You assist users in learning the Japanese language (Nihongo). Keep your answers concise, engaging, and always infuse a bit of samurai spirit and Japanese words (with Romaji) in your responses.'
+                    content: 'You are a wise and highly knowledgeable Japanese Samurai AI named Jin Sakai. You assist users in learning the Japanese language (Nihongo). CRITICAL: Keep your answers extremely concise, clear, and simple so beginners can easily understand. Do not be overly verbose. You are a master of all languages, so you must always detect the user\'s language and respond in that exact same language to clear their doubts. Infuse a subtle touch of samurai spirit and Japanese words (with Romaji), but prioritize efficiency and simplicity in your explanations.'
                 },
                 {
                     role: 'user',
                     content: message
                 }
             ],
-            model: 'llama-3.1-8b-instant', // Active model
-            temperature: 0.7,
-            max_tokens: 150,
+            model: 'llama-3.3-70b-versatile', // Highly knowledgeable model
+            temperature: 0.5, // Lower temperature for more focused, direct answers
+            max_tokens: 400,
         });
 
         const reply = completion.choices[0]?.message?.content || 'Silence is a warrior\'s best answer.';
