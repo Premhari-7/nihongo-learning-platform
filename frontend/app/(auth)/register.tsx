@@ -86,7 +86,7 @@ export default function RegisterScreen() {
                 onConfirm={() => setPopupVisible(false)}
             />
             <View style={styles.card}>
-                <Image source={require('../../assets/images/red_samurai_logo.png')} style={styles.logo} resizeMode="contain" />
+                <Image source={require('../../assets/images/icon_circle.png')} style={styles.logo} resizeMode="contain" />
                 <View style={styles.titleContainer}>
                     <Text style={styles.title}>Register</Text>
                     <Text style={styles.titleJp}>登録</Text>

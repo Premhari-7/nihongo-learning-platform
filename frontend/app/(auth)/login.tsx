@@ -49,7 +49,7 @@ export default function LoginScreen() {
                     onClose={() => setPopupVisible(false)}
                 />
                 <View style={styles.card}>
-                    <Image source={require('../../assets/images/red_samurai_logo.png')} style={styles.logo} resizeMode="contain" />
+                    <Image source={require('../../assets/images/icon_circle.png')} style={styles.logo} resizeMode="contain" />
                     <View style={styles.titleContainer}>
                         <Text style={styles.platformName}>日本語 </Text>
                         <Text style={styles.title}>LOGIN</Text>
