@@ -29,7 +29,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, isAlreadyComplete
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const [accumulatedWatchTime, setAccumulatedWatchTime] = useState(0);
-    const lastUpdateMillisRef = useRef(0);
+    const lastPositionMillisRef = useRef(0);
     
     const [showControls, setShowControls] = useState(true);
     const controlsTimeoutRef = useRef<any>(null);
@@ -86,29 +86,29 @@ export default function SecureVideoPlayer({ videoUri, videoId, isAlreadyComplete
         const positionMillis = video.currentTime * 1000;
         const durationM = video.duration * 1000 || 0;
         
+        const advancedMillis = positionMillis - lastPositionMillisRef.current;
+        lastPositionMillisRef.current = positionMillis;
+        
         setCurrentPositionMillis(positionMillis);
         setDurationMillis(durationM);
         
-        const now = Date.now();
         if (positionMillis > highestWatchedMillisRef.current) {
-            if (positionMillis <= highestWatchedMillisRef.current + 2500 * playbackRate) {
+            if (advancedMillis >= 0 && advancedMillis <= 3000 * playbackRate) {
                 highestWatchedMillisRef.current = positionMillis;
             } else {
                 video.currentTime = highestWatchedMillisRef.current / 1000;
+                lastPositionMillisRef.current = highestWatchedMillisRef.current;
+                return;
             }
         }
         
-        if (lastUpdateMillisRef.current > 0 && isPlaying) {
-            const delta = now - lastUpdateMillisRef.current;
-            if (delta < 2000) {
-                setAccumulatedWatchTime(prev => prev + (delta * playbackRate));
-            }
+        if (isPlaying && advancedMillis > 0 && advancedMillis <= 3000 * playbackRate) {
+            setAccumulatedWatchTime(prev => prev + advancedMillis);
         }
-        lastUpdateMillisRef.current = now;
         
         if (durationM && !isCompleted) {
             const percentageWatched = accumulatedWatchTime / durationM;
-            if (percentageWatched > 0.95 || (video.ended && percentageWatched > 0.90)) {
+            if (percentageWatched > 0.85 || (video.ended && percentageWatched > 0.85)) {
                 setIsCompleted(true);
                 saveProgress(true).then(() => {
                     onComplete();
@@ -119,17 +119,19 @@ export default function SecureVideoPlayer({ videoUri, videoId, isAlreadyComplete
 
     const handleWebPlay = () => {
         setIsPlaying(true);
-        lastUpdateMillisRef.current = Date.now();
+        if (htmlVideoRef.current) {
+            lastPositionMillisRef.current = htmlVideoRef.current.currentTime * 1000;
+        }
     };
 
     const handleWebPause = () => {
         setIsPlaying(false);
-        lastUpdateMillisRef.current = 0;
     };
 
     const handleWebLoadedMetadata = (e: any) => {
         setLoadError(null);
         setDurationMillis(e.target.duration * 1000);
+        lastPositionMillisRef.current = e.target.currentTime * 1000;
     };
 
     const handleWebError = (e: any) => {
@@ -141,7 +143,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, isAlreadyComplete
         const durationM = durationMillis || (htmlVideoRef.current?.duration || 0) * 1000;
         if (durationM && !isCompleted) {
             const percentageWatched = accumulatedWatchTime / durationM;
-            if (percentageWatched > 0.90) {
+            if (percentageWatched > 0.85) {
                 setIsCompleted(true);
                 saveProgress(true).then(() => onComplete());
             }
@@ -164,30 +166,31 @@ export default function SecureVideoPlayer({ videoUri, videoId, isAlreadyComplete
         setDurationMillis(status.durationMillis || 0);
         setCurrentPositionMillis(status.positionMillis);
 
+        const advancedMillis = status.positionMillis - lastPositionMillisRef.current;
+        
         if (status.isPlaying) {
-            const now = Date.now();
+            lastPositionMillisRef.current = status.positionMillis;
+            
             if (status.positionMillis > highestWatchedMillisRef.current) {
-                if (status.positionMillis <= highestWatchedMillisRef.current + 2500 * playbackRate) {
+                if (advancedMillis >= 0 && advancedMillis <= 3000 * playbackRate) {
                     highestWatchedMillisRef.current = status.positionMillis;
                 } else {
                     videoRef.current?.setPositionAsync(highestWatchedMillisRef.current);
+                    lastPositionMillisRef.current = highestWatchedMillisRef.current;
+                    return;
                 }
             }
 
-            if (lastUpdateMillisRef.current > 0) {
-                const delta = now - lastUpdateMillisRef.current;
-                if (delta < 2000) {
-                    setAccumulatedWatchTime(prev => prev + (delta * playbackRate));
-                }
+            if (advancedMillis > 0 && advancedMillis <= 3000 * playbackRate) {
+                setAccumulatedWatchTime(prev => prev + advancedMillis);
             }
-            lastUpdateMillisRef.current = now;
         } else {
-            lastUpdateMillisRef.current = 0;
+            lastPositionMillisRef.current = status.positionMillis;
         }
 
         if (status.durationMillis && !isCompleted) {
             const percentageWatched = accumulatedWatchTime / status.durationMillis;
-            if (percentageWatched > 0.90 || (status.didJustFinish && percentageWatched > 0.90)) {
+            if (percentageWatched > 0.85 || (status.didJustFinish && percentageWatched > 0.85)) {
                 setIsCompleted(true);
                 saveProgress(true).then(() => {
                     onComplete();
@@ -326,6 +329,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, isAlreadyComplete
                     onLoadedMetadata={handleWebLoadedMetadata}
                     onError={handleWebError}
                     onEnded={handleWebEnded}
+                    onRateChange={(e: any) => setPlaybackRate(e.target.playbackRate)}
                 >
                     <source src={videoUri} type="video/mp4" />
                 </video>
