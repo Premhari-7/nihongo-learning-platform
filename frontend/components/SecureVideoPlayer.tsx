@@ -137,13 +137,9 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     };
 
     const handleWebEnded = () => {
-        const durationM = durationMillis || (htmlVideoRef.current?.duration || 0) * 1000;
-        if (durationM && !isCompleted) {
-            const percentageWatched = accumulatedWatchTime / durationM;
-            if (percentageWatched > 0.90) {
-                setIsCompleted(true);
-                saveProgress(true).then(() => onComplete());
-            }
+        if (!isCompleted) {
+            setIsCompleted(true);
+            saveProgress(true).then(() => onComplete());
         }
     };
 
@@ -186,7 +182,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
 
         if (status.durationMillis && !isCompleted) {
             const percentageWatched = accumulatedWatchTime / status.durationMillis;
-            if (percentageWatched > 0.95 || (status.didJustFinish && percentageWatched > 0.90)) {
+            if (percentageWatched > 0.95 || status.didJustFinish) {
                 setIsCompleted(true);
                 saveProgress(true).then(() => {
                     onComplete();

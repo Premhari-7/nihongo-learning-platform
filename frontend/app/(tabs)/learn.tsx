@@ -39,7 +39,7 @@ export default function LearnDashboard() {
             const videoRes = await axios.get(`${API_URL}/videos`);
             const filteredVideos = videoRes.data.filter((v: any) => 
                 v.jlptLevel === selectedCourse.level && v.section === selectedCourse.section
-            );
+            ).sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
             
             // Assuming videos need to be sorted by some order or just by creation
             setVideos(filteredVideos);
@@ -52,7 +52,7 @@ export default function LearnDashboard() {
             // Find first uncompleted video
             let firstUncompletedIdx = 0;
             for (let i = 0; i < filteredVideos.length; i++) {
-                const vidProg = progRes.data.find((p: any) => p.videoId === filteredVideos[i]._id);
+                const vidProg = progRes.data.find((p: any) => String(p.videoId) === String(filteredVideos[i]._id));
                 if (!vidProg || !vidProg.isCompleted) {
                     firstUncompletedIdx = i;
                     break;
@@ -103,12 +103,12 @@ export default function LearnDashboard() {
     }
 
     const currentVideo = videos[selectedVideoIndex];
-    const currentVideoProgress = progress.find(p => p.videoId === currentVideo?._id);
+    const currentVideoProgress = progress.find(p => String(p.videoId) === String(currentVideo?._id));
     const isCurrentVideoCompleted = currentVideoProgress?.isCompleted || false;
 
     // Quiz unlocks only when ALL videos in the course are completed
     const allVideosCompleted = videos.length > 0 && videos.every(
-        (v: any) => progress.find((p: any) => p.videoId === v._id)?.isCompleted
+        (v: any) => progress.find((p: any) => String(p.videoId) === String(v._id))?.isCompleted
     );
 
     return (
@@ -124,8 +124,8 @@ export default function LearnDashboard() {
                     data={videos}
                     keyExtractor={item => item._id}
                     renderItem={({ item, index }) => {
-                        const isUnlocked = index === 0 || progress.find(p => p.videoId === videos[index - 1]?._id)?.isCompleted;
-                        const isCompleted = progress.find(p => p.videoId === item._id)?.isCompleted;
+                        const isUnlocked = index === 0 || progress.find(p => String(p.videoId) === String(videos[index - 1]?._id))?.isCompleted;
+                        const isCompleted = progress.find(p => String(p.videoId) === String(item._id))?.isCompleted;
                         const isActive = selectedVideoIndex === index;
 
                         return (
