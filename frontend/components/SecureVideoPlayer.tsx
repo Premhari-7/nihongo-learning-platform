@@ -10,10 +10,11 @@ import axios from 'axios';
 interface SecureVideoPlayerProps {
     videoUri: string;
     videoId: string;
+    isAlreadyCompleted?: boolean;
     onComplete: () => void;
 }
 
-export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: SecureVideoPlayerProps) {
+export default function SecureVideoPlayer({ videoUri, videoId, isAlreadyCompleted = false, onComplete }: SecureVideoPlayerProps) {
     const videoRef = useRef<Video>(null);
     const htmlVideoRef = useRef<HTMLVideoElement>(null);
     const { user } = useContext(AuthContext);
@@ -23,7 +24,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     const [playbackRate, setPlaybackRate] = useState(1.0);
     const [currentPositionMillis, setCurrentPositionMillis] = useState(0);
     const [durationMillis, setDurationMillis] = useState(0);
-    const [isCompleted, setIsCompleted] = useState(false);
+    const [isCompleted, setIsCompleted] = useState(isAlreadyCompleted);
     const [isLoading, setIsLoading] = useState(Platform.OS !== 'web');
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -34,7 +35,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     const controlsTimeoutRef = useRef<any>(null);
 
     const [progressBarWidth, setProgressBarWidth] = useState(0);
-    const highestWatchedMillisRef = useRef(0);
+    const highestWatchedMillisRef = useRef(isAlreadyCompleted ? Number.MAX_SAFE_INTEGER : 0);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -137,9 +138,13 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
     };
 
     const handleWebEnded = () => {
-        if (!isCompleted) {
-            setIsCompleted(true);
-            saveProgress(true).then(() => onComplete());
+        const durationM = durationMillis || (htmlVideoRef.current?.duration || 0) * 1000;
+        if (durationM && !isCompleted) {
+            const percentageWatched = accumulatedWatchTime / durationM;
+            if (percentageWatched > 0.90) {
+                setIsCompleted(true);
+                saveProgress(true).then(() => onComplete());
+            }
         }
     };
 
@@ -182,7 +187,7 @@ export default function SecureVideoPlayer({ videoUri, videoId, onComplete }: Sec
 
         if (status.durationMillis && !isCompleted) {
             const percentageWatched = accumulatedWatchTime / status.durationMillis;
-            if (percentageWatched > 0.95 || status.didJustFinish) {
+            if (percentageWatched > 0.90 || (status.didJustFinish && percentageWatched > 0.90)) {
                 setIsCompleted(true);
                 saveProgress(true).then(() => {
                     onComplete();

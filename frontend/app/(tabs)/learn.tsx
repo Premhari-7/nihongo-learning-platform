@@ -185,6 +185,7 @@ export default function LearnDashboard() {
                                 key={currentVideo._id}
                                 videoUri={currentVideo.url}
                                 videoId={currentVideo._id}
+                                isAlreadyCompleted={isCurrentVideoCompleted}
                                 onComplete={handleVideoComplete}
                             />
                         ) : (
